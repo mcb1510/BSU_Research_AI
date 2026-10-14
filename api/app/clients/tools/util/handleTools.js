@@ -68,8 +68,13 @@ const { getUserPluginAuthValue } = require('~/server/services/PluginService');
 const { loadAuthValues } = require('~/server/services/Tools/credentials');
 const { getMCPServerTools, checkCapability } = require('~/server/services/Config');
 const { getMCPServersRegistry } = require('~/config');
-const { getRoleByName, setMemory, deleteMemory, getFormattedMemories, createFile, getFiles } =
-  require('~/models');
+const {
+  getRoleByName,
+  setMemory,
+  deleteMemory,
+  getFormattedMemories,
+  createFile,
+} = require('~/models');
 
 /**
  * Validates the availability and authentication of tools for a user based on environment variables or user-specific plugin authentication values.
@@ -456,30 +461,14 @@ const loadTools = async ({
       };
       continue;
     } else if (tool === Tools.paper_summarizer) {
-      requestedTools[tool] = async () => {
-        /** Reuses the same attached-file bucket `file_search` reads from, so a
-         *  researcher just attaches their PDF normally — no separate upload flow. */
-        const file_ids = options.tool_resources?.[EToolResources.file_search]?.file_ids ?? [];
-        const resourceFiles = options.tool_resources?.[EToolResources.file_search]?.files ?? [];
-        const dbFiles = file_ids.length
-          ? ((await getFiles({ file_id: { $in: file_ids } }, null, { text: 0 })) ?? [])
-          : [];
-        const files = dbFiles.concat(resourceFiles).map((file) => ({
-          file_id: file.file_id,
-          filepath: file.filepath,
-          filename: file.filename,
-          type: file.type,
-          user,
-        }));
-        return createPaperSummarizerTool({
+      requestedTools[tool] = async () =>
+        createPaperSummarizerTool({
           appConfig: options.req.config,
           userId: user,
-          files,
-          endpoint: agent?.provider ?? endpoint,
+          endpoint: agent?.endpoint ?? agent?.provider ?? endpoint,
           model: agent?.model ?? model,
           createFile,
         });
-      };
       continue;
     } else if (tool === ASK_USER_QUESTION_TOOL_NAME) {
       requestedTools[tool] = async () => createAskUserQuestionTool();

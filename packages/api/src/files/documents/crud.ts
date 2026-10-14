@@ -1,3 +1,4 @@
+import path from 'path';
 import * as fs from 'fs';
 import yauzl from 'yauzl';
 import { megabyte, excelMimeTypes, FileSources } from 'librechat-data-provider';
@@ -9,6 +10,13 @@ type FileParseFn = (file: Express.Multer.File) => Promise<string>;
 
 const DOCUMENT_PARSER_MAX_FILE_SIZE = 15 * megabyte;
 const ODT_MAX_DECOMPRESSED_SIZE = 50 * megabyte;
+
+/** pdfjs needs this on disk to lay out standard (non-embedded) fonts like Helvetica —
+ *  without it, `getDocument` throws `UnknownErrorException` on any PDF that uses one. */
+const STANDARD_FONT_DATA_URL = `${path.join(
+  path.dirname(require.resolve('pdfjs-dist/package.json')),
+  'standard_fonts',
+)}/`;
 
 /**
  * Parses an uploaded document and extracts its text content and metadata.
@@ -76,7 +84,7 @@ async function pdfToText(file: Express.Multer.File): Promise<string> {
   const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs');
 
   const data = new Uint8Array(await fs.promises.readFile(file.path));
-  const pdf = await getDocument({ data }).promise;
+  const pdf = await getDocument({ data, standardFontDataUrl: STANDARD_FONT_DATA_URL }).promise;
 
   let fullText = '';
   for (let i = 1; i <= pdf.numPages; i++) {

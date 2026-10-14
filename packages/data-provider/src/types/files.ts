@@ -202,7 +202,7 @@ export type TFile = {
     /** The type the delivery route was resolved against, when conversion changed it. */
     routingMimeType?: string;
   };
-  llmDeliveryPath?: 'provider' | 'text' | 'none';
+  llmDeliveryPath?: 'provider' | 'text' | 'none' | 'images';
   createdAt?: string | Date;
   updatedAt?: string | Date;
 };

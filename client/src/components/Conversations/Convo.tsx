@@ -1,9 +1,9 @@
 import React, { memo, useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useDrag } from 'react-dnd';
-import { Link2 } from 'lucide-react';
 import { useRecoilValue } from 'recoil';
 import { useParams } from 'react-router-dom';
-import { Constants } from 'librechat-data-provider';
+import { Bot, Link2, MessageSquare } from 'lucide-react';
+import { Constants, isAgentsEndpoint } from 'librechat-data-provider';
 import { Spinner, useToastContext, useMediaQuery } from '@librechat/client';
 import type { TConversation } from 'librechat-data-provider';
 import type { ConversationDragItem } from './dnd';
@@ -13,7 +13,6 @@ import {
   useUpdateConversationMutation,
 } from '~/data-provider';
 import { useNavigateToConvo, useLocalize, useShiftKey } from '~/hooks';
-import ConversationEndpointIcon from './ConversationEndpointIcon';
 import { focusableInRow, resolveRowBeside } from './focus';
 import { areConversationRenderPropsEqual } from './utils';
 import { cn, logger, setDocumentTitle } from '~/utils';
@@ -357,7 +356,11 @@ function Conversation({
           localize={localize}
           keyShortcuts={keyShortcuts}
         >
-          <ConversationEndpointIcon conversation={conversation} size={20} context="menu-item" />
+          {isAgentsEndpoint(conversation.endpoint) ? (
+            <Bot className="icon-sm shrink-0 text-text-secondary" aria-hidden="true" />
+          ) : (
+            <MessageSquare className="icon-sm shrink-0 text-text-secondary" aria-hidden="true" />
+          )}
         </ConvoLink>
       )}
       {isSharedBadgeVisible && (

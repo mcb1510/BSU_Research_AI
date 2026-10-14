@@ -25,7 +25,7 @@ function AgentConversationsSection({
   }
 
   return (
-    <div className="mb-2">
+    <div className="mb-2 text-sm text-text-primary">
       <div className="px-3 py-1 text-xs font-medium text-text-secondary">
         {localize('com_sidepanel_tools')}
       </div>

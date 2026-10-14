@@ -1818,17 +1818,31 @@ class BaseClient {
       });
     }
 
-    return file.llmDeliveryPath == null || file.metadata?.destinationChosen === true
-      ? file.llmDeliveryPath
-      : resolveUploadLLMDeliveryPath({
-          /* Conversion changes the stored type, so use the type routing originally saw. */
-          mimeType: file.metadata?.routingMimeType ?? file.type,
-          endpointConfig: this._endpointFileConfig,
-          fileConfig: this._mergedFileConfig,
-          endpoint: this._deliveryEndpoint,
-          useResponsesApi: this.usesResponsesApi(),
-          sttConfigured: isSpeechProviderConfigured(this.options.req?.config?.speech?.stt),
-        });
+    const resolvedPath =
+      file.llmDeliveryPath == null || file.metadata?.destinationChosen === true
+        ? file.llmDeliveryPath
+        : resolveUploadLLMDeliveryPath({
+            /* Conversion changes the stored type, so use the type routing originally saw. */
+            mimeType: file.metadata?.routingMimeType ?? file.type,
+            endpointConfig: this._endpointFileConfig,
+            fileConfig: this._mergedFileConfig,
+            endpoint: this._deliveryEndpoint,
+            useResponsesApi: this.usesResponsesApi(),
+            sttConfigured: isSpeechProviderConfigured(this.options.req?.config?.speech?.stt),
+          });
+
+    /* 'images' (rendered PDF pages) is meant for plain chat, where the model has no other
+     * way to read an uploaded document. A real, selected agent — as opposed to plain
+     * chat's own invisible ephemeral agent — gets the cheaper, already-reliable text
+     * route instead: the full extracted text inlined into its context, which a tool can
+     * also read directly from the conversation rather than hunting for the file itself. */
+    const isRealAgent =
+      this.options.agent?.id != null && !isEphemeralAgentId(this.options.agent.id);
+    if (isRealAgent && resolvedPath === 'images') {
+      return 'text';
+    }
+
+    return resolvedPath;
   }
 
   async processAttachments(message, attachments) {

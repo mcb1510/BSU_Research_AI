@@ -110,12 +110,27 @@ export interface BedrockDocumentBlock {
   };
 }
 
+/** Plain text content block, standard across LangChain message content arrays. */
+export interface TextBlock {
+  type: 'text';
+  text: string;
+}
+
+/** Image content block, standard across LangChain message content arrays. Used for a
+ *  rendered PDF page when the provider can see images but rejects a native file block. */
+export interface ImageUrlBlock {
+  type: 'image_url';
+  image_url: { url: string };
+}
+
 export type DocumentBlock =
   | AnthropicDocumentBlock
   | GoogleDocumentBlock
   | OpenAIFileBlock
   | OpenAIInputFileBlock
-  | BedrockDocumentBlock;
+  | BedrockDocumentBlock
+  | TextBlock
+  | ImageUrlBlock;
 
 export interface DocumentResult {
   documents: DocumentBlock[];

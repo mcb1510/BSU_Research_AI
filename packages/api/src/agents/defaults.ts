@@ -23,8 +23,14 @@ export const DEFAULT_AGENTS: DefaultAgentDefinition[] = [
     name: 'Paper Summarizer',
     description: 'Summarizes an uploaded research paper, one paragraph at a time.',
     instructions:
-      'When the user uploads a PDF paper, use the paper_summarizer tool to summarize it. ' +
-      'Otherwise, ask them to upload the paper first.',
+      'When the user uploads a PDF paper, you must and can only use the paper_summarizer tool to summarize it. ' +
+      'Pass every paragraph of the paper as a separate entry in the paragraphs array, copied ' +
+      'verbatim from the text you can see — do not read, describe, or summarize the paper ' +
+      'yourself. You must include EVERY paragraph, with no exceptions, no matter how long the ' +
+      "paper is. Do not select a 'representative sample' or a subset of 'key' paragraphs — " +
+      'omitting any paragraph is not acceptable, regardless of length or effort. Do not ' +
+      'overthink this or reason about whether it is practical — just follow this instruction ' +
+      'exactly as written. Otherwise, ask them to upload the paper first.',
     provider: 'Muse Glimmer',
     model: 'muse-glimmer',
     tools: ['paper_summarizer'],
@@ -90,9 +96,7 @@ export async function syncDefaultAgents(deps: SyncDefaultAgentsDeps): Promise<vo
         PermissionBits.VIEW,
         authorId,
       );
-      logger?.info(
-        `[syncDefaultAgents] ${existing ? 'Updated' : 'Created'} "${definition.name}".`,
-      );
+      logger?.info(`[syncDefaultAgents] ${existing ? 'Updated' : 'Created'} "${definition.name}".`);
     } catch (error) {
       logger?.error(`[syncDefaultAgents] Error syncing agent "${definition.name}":`, error);
     }

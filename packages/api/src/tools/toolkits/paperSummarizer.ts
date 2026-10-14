@@ -10,111 +10,39 @@ import type { IMongoFile } from '@librechat/data-schemas';
 import type { AppConfig } from '@librechat/data-schemas';
 import { getCustomEndpointConfig } from '~/app/config';
 
-const paperSummarizerToolSchema: z.ZodObject<{ fileId: z.ZodOptional<z.ZodString> }, 'strip'> =
-  z.object({
-    fileId: z
-      .string()
-      .trim()
-      .min(1)
-      .optional()
-      .describe(
-        'ID of the uploaded paper to summarize. Omit to use the single attached file when ' +
-          'exactly one was uploaded this turn.',
-      ),
-  });
+const paperSummarizerToolSchema: z.ZodObject<
+  {
+    paragraphs: z.ZodArray<z.ZodString>;
+    filename: z.ZodOptional<z.ZodString>;
+  },
+  'strip'
+> = z.object({
+  paragraphs: z
+    .array(z.string().trim().min(1))
+    .min(1)
+    .describe(
+      'Every paragraph of the attached paper, in order, copied verbatim from the text you ' +
+        'can already see in this conversation. One array entry per paragraph — do not merge ' +
+        'multiple paragraphs into one entry or split a single paragraph across several.',
+    ),
+  filename: z
+    .string()
+    .trim()
+    .min(1)
+    .optional()
+    .describe("The attached paper's filename, used to name the summary file. Omit if unknown."),
+});
 
 type PaperSummarizerInput = z.infer<typeof paperSummarizerToolSchema>;
-
-/** Minimal shape this tool needs from an attached file, regardless of caller's file type. */
-interface AttachedFile {
-  file_id: string;
-  filepath: string;
-  filename: string;
-  type: string;
-  user: string;
-}
 
 interface PaperSummarizerDeps {
   appConfig: AppConfig;
   userId: string;
-  files: AttachedFile[];
   /** Custom endpoint name whose credentials run the per-paragraph summary calls
    *  (the same model the researcher is already chatting with). */
   endpoint: string;
   model: string;
   createFile: (data: Partial<IMongoFile>, disableTTL?: boolean) => Promise<IMongoFile | null>;
-}
-
-const MIN_PARAGRAPH_LENGTH = 40;
-
-function selectTargetFile(files: AttachedFile[], fileId?: string): AttachedFile {
-  if (fileId) {
-    const match = files.find((file) => file.file_id === fileId);
-    if (!match) {
-      throw new Error(`No attached file found with id "${fileId}".`);
-    }
-    return match;
-  }
-  if (files.length === 1) {
-    return files[0];
-  }
-  if (files.length === 0) {
-    throw new Error('No file is attached to this turn. Upload a paper first.');
-  }
-  throw new Error(
-    `Multiple files are attached (${files
-      .map((file) => `"${file.filename}" (${file.file_id})`)
-      .join(', ')}); specify "fileId" to pick one.`,
-  );
-}
-
-/** Resolves a stored `/uploads/<userId>/<name>` filepath to its absolute path on disk,
- *  rejecting traversal outside the configured uploads directory. */
-function resolveUploadPath(appConfig: AppConfig, filepath: string): string {
-  const marker = '/uploads/';
-  const index = filepath.indexOf(marker);
-  if (index === -1) {
-    throw new Error(`Unsupported file location for local summarization: "${filepath}".`);
-  }
-  const relative = filepath.slice(index + marker.length);
-  const uploadsDir = appConfig.paths?.uploads;
-  if (!uploadsDir) {
-    throw new Error('Uploads directory is not configured.');
-  }
-  const resolved = path.resolve(uploadsDir, relative);
-  const rel = path.relative(path.resolve(uploadsDir), resolved);
-  if (rel.startsWith('..') || path.isAbsolute(rel)) {
-    throw new Error(`Invalid file path: "${filepath}".`);
-  }
-  return resolved;
-}
-
-/** Extracts page text from a local PDF, mirroring the extraction used for document uploads
- *  (`files/documents/crud.ts`), inlined here since that helper expects a Multer file. */
-async function extractPdfText(absolutePath: string): Promise<string> {
-  const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs');
-  const data = new Uint8Array(await fs.promises.readFile(absolutePath));
-  const pdf = await getDocument({ data }).promise;
-
-  let fullText = '';
-  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
-    const page = await pdf.getPage(pageNumber);
-    const textContent = await page.getTextContent();
-    const pageText = textContent.items
-      .map((item) => ('str' in item ? item.str : ''))
-      .join(' ');
-    fullText += `${pageText}\n`;
-  }
-  return fullText;
-}
-
-/** Splits extracted text into paragraphs on blank lines, dropping fragments too short
- *  to be a real paragraph (running headers, page numbers, stray line breaks). */
-function splitIntoParagraphs(text: string): string[] {
-  return text
-    .split(/\n\s*\n/)
-    .map((paragraph) => paragraph.replace(/\s+/g, ' ').trim())
-    .filter((paragraph) => paragraph.length >= MIN_PARAGRAPH_LENGTH);
 }
 
 async function summarizeParagraph(
@@ -221,8 +149,10 @@ async function saveSummaryFile(
 }
 
 export const PAPER_SUMMARIZER_TOOL_DESCRIPTION: string =
-  'Reads an uploaded PDF research paper, summarizes it paragraph by paragraph, and returns ' +
-  'one downloadable Markdown file with every paragraph summary.';
+  'Summarizes a research paper paragraph by paragraph and returns one downloadable Markdown ' +
+  'file with every paragraph summary. Pass every paragraph of the paper, copied verbatim from ' +
+  'the text already visible in this conversation — do not read or summarize the paper ' +
+  'yourself, this tool does that.';
 
 /** JSON-schema twin of {@link paperSummarizerToolSchema} for the schema-only tool registry
  *  (`agentToolDefinitions` in `tools/registry/definitions.ts`), same shape the DDGS web-search
@@ -233,7 +163,8 @@ export interface PaperSummarizerToolDefinitionShape {
   schema: {
     type: 'object';
     properties: {
-      fileId: { type: 'string'; description: string };
+      paragraphs: { type: 'array'; items: { type: 'string' }; description: string };
+      filename: { type: 'string'; description: string };
     };
     required: string[];
   };
@@ -245,14 +176,19 @@ export const PaperSummarizerToolDefinition: PaperSummarizerToolDefinitionShape =
   schema: {
     type: 'object',
     properties: {
-      fileId: {
-        type: 'string',
+      paragraphs: {
+        type: 'array',
+        items: { type: 'string' },
         description:
-          'ID of the uploaded paper to summarize. Omit to use the single attached file ' +
-          'when exactly one was uploaded this turn.',
+          'Every paragraph of the attached paper, in order, copied verbatim from the text ' +
+          'already visible in this conversation.',
+      },
+      filename: {
+        type: 'string',
+        description: "The attached paper's filename, used to name the summary file.",
       },
     },
-    required: [],
+    required: ['paragraphs'],
   },
 };
 
@@ -261,19 +197,8 @@ export function createPaperSummarizerTool(
 ): DynamicStructuredTool<typeof paperSummarizerToolSchema> {
   return tool(
     async (input: PaperSummarizerInput) => {
-      const sourceFile = selectTargetFile(deps.files, input.fileId);
-      if (sourceFile.type !== 'application/pdf') {
-        throw new Error(
-          `"${sourceFile.filename}" is a ${sourceFile.type}; only PDF papers are supported.`,
-        );
-      }
-
-      const absolutePath = resolveUploadPath(deps.appConfig, sourceFile.filepath);
-      const text = await extractPdfText(absolutePath);
-      const paragraphs = splitIntoParagraphs(text);
-      if (paragraphs.length === 0) {
-        throw new Error(`No readable paragraphs were found in "${sourceFile.filename}".`);
-      }
+      const paragraphs = input.paragraphs;
+      const sourceFilename = input.filename ?? 'paper.pdf';
 
       const endpointConfig = getCustomEndpointConfig({
         endpoint: deps.endpoint,
@@ -288,11 +213,11 @@ export function createPaperSummarizerTool(
         baseURL: endpointConfig.baseURL,
         model: deps.model,
       });
-      const markdown = buildMarkdown(sourceFile.filename, paragraphs, summaries);
-      const summaryFile = await saveSummaryFile(deps, markdown, sourceFile.filename);
+      const markdown = buildMarkdown(sourceFilename, paragraphs, summaries);
+      const summaryFile = await saveSummaryFile(deps, markdown, sourceFilename);
 
       return [
-        `Summarized ${paragraphs.length} paragraphs from "${sourceFile.filename}" into ` +
+        `Summarized ${paragraphs.length} paragraphs from "${sourceFilename}" into ` +
           `"${summaryFile.filename}".`,
         { files: [summaryFile] },
       ] as [string, { files: IMongoFile[] }];

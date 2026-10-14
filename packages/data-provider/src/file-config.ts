@@ -565,7 +565,7 @@ export const fileConfig = {
 
 const supportedMimeTypesSchema = z.array(z.string()).optional();
 
-export const DefaultLLMDeliveryPath = z.enum(['provider', 'text', 'none']);
+export const DefaultLLMDeliveryPath = z.enum(['provider', 'text', 'none', 'images']);
 export type TDefaultLLMDeliveryPath = z.infer<typeof DefaultLLMDeliveryPath>;
 
 export const defaultLLMDeliveryPathSchema = z.object({

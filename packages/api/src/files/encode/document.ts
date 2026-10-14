@@ -21,6 +21,7 @@ import {
   isAttachmentObjectNotFoundError,
 } from './utils';
 import { validatePdf, validateBedrockDocument } from '~/files/validation';
+import { renderPdfPagesWithText } from './pdfImages';
 import { runGuardedEncode } from './memoryGuard';
 
 /** Anthropic only accepts PDFs as base64 documents; textual types must use a text source */
@@ -190,8 +191,14 @@ export async function encodeAndFormatDocuments(
 
   const isBedrock = provider === Providers.BEDROCK;
   const isDocSupported = isDocumentSupportedProvider(provider);
+  /* An explicit per-file 'images' route is a routing decision already made upstream
+   * (`fileConfig.endpoints[...].defaultLLMDeliveryPath`), independent of whether this
+   * function recognizes `provider` as document-capable — custom endpoint names never
+   * match the generic provider list, so without this an 'images' file would otherwise
+   * be dropped by the capability gate below before ever reaching its own branch. */
+  const hasImageDeliveryFiles = files.some((file) => file.llmDeliveryPath === 'images');
 
-  if (!isDocSupported && !isBedrock) {
+  if (!isDocSupported && !isBedrock && !hasImageDeliveryFiles) {
     return result;
   }
 
@@ -231,6 +238,20 @@ export async function encodeAndFormatDocuments(
     }
 
     const mimeType = file.type ?? '';
+
+    if (file.llmDeliveryPath === 'images' && mimeType === 'application/pdf') {
+      const fileBuffer = Buffer.from(content, 'base64');
+      const pages = await renderPdfPagesWithText(fileBuffer);
+      for (const page of pages) {
+        result.documents.push({ type: 'text', text: `Page ${page.pageNumber}:\n${page.text}` });
+        result.documents.push({
+          type: 'image_url',
+          image_url: { url: `data:image/png;base64,${page.imageBase64}` },
+        });
+      }
+      result.files.push(metadata);
+      continue;
+    }
 
     if (isBedrock && isBedrockDocumentType(mimeType)) {
       const fileBuffer = Buffer.from(content, 'base64');

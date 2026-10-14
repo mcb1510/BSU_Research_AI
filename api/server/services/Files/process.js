@@ -14,6 +14,7 @@ const {
   mergeFileConfig,
   AgentCapabilities,
   checkOpenAIStorage,
+  isEphemeralAgentId,
   removeNullishValues,
   getEndpointFileConfig,
   resolveUploadLLMDeliveryPath,
@@ -636,7 +637,7 @@ const processAgentFileUpload = async ({ req, res, metadata, sseStream }) => {
     }
   }
 
-  const llmDeliveryPath = resolveUploadLLMDeliveryPath({
+  let llmDeliveryPath = resolveUploadLLMDeliveryPath({
     toolResource: tool_resource,
     mimeType: file.mimetype,
     endpointConfig,
@@ -645,6 +646,16 @@ const processAgentFileUpload = async ({ req, res, metadata, sseStream }) => {
     useResponsesApi: isResponsesApiUpload(metadata.useResponsesApi ?? req.body?.useResponsesApi),
     sttConfigured: isSpeechProviderConfigured(appConfig?.speech?.stt),
   });
+
+  /* 'images' (rendered PDF pages) is meant for plain chat, where the model has no other way
+   * to read an uploaded document. A real, selected agent — as opposed to plain chat's own
+   * invisible ephemeral agent — gets the cheaper, already-reliable text route instead, which
+   * routes through the `context` extraction below and actually populates `file.text` (the
+   * chat-time-only equivalent in `getAttachmentDeliveryPath` can only relabel an already
+   * un-extracted file, which a tool can't then read). */
+  if (!tool_resource && !isEphemeralAgentId(agent_id) && llmDeliveryPath === 'images') {
+    llmDeliveryPath = 'text';
+  }
 
   /* Destination and acceptability are one decision, made by shared policy rather than
    * rebuilt here. `agentTools` is undefined when no agent record backs the upload. */

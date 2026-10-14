@@ -98,6 +98,13 @@
     "authConfig": []
   },
   {
+    "name": "Paper Summarizer",
+    "pluginKey": "paper_summarizer",
+    "description": "Summarizes an uploaded research paper, one paragraph at a time, into a downloadable Markdown file.",
+    "agentsOnly": true,
+    "authConfig": []
+  },
+  {
     "name": "Stable Diffusion",
     "pluginKey": "stable-diffusion",
     "description": "Generate photo-realistic images given any text input.",
