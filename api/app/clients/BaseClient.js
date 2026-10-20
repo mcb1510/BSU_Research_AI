@@ -23,6 +23,8 @@ const {
   withBalanceReservations,
   findCheckpointSummaryPart,
   getSummaryPartText,
+  getWebSearchToolName,
+  condenseWebSearchOutputForHistory,
 } = require('@librechat/api');
 const {
   Constants,
@@ -1358,6 +1360,15 @@ class BaseClient {
       { context: 'api/app/clients/BaseClient.js - saveMessageToDatabase #saveMessage' },
     );
 
+    // Fire-and-forget: the message is already saved above with its full content,
+    // so the user's turn is complete either way. This only shrinks what FUTURE
+    // turns in this conversation replay, never what was already answered.
+    this.condenseWebSearchResultsForHistory(message, savedMessage, options, reqCtx).catch(
+      (error) => {
+        logger.warn('[BaseClient] Failed to condense web_search results for history', error);
+      },
+    );
+
     if (this.skipSaveConvo) {
       return { message: savedMessage };
     }
@@ -1426,6 +1437,66 @@ class BaseClient {
     }
 
     return { message: savedMessage, conversation };
+  }
+
+  /**
+   * Shrinks any `web_search` tool-call results in this message for future-turn
+   * replay, swapping large page-read content for a short summary. Called after
+   * the message is already saved — the model already used the full content to
+   * answer this turn, so this only affects what later turns resend as history.
+   * No-op (and never throws past its caller's `.catch`) when there's nothing
+   * to condense, credentials aren't resolvable, or the condense call fails.
+   * @param {TMessage} message
+   * @param {Partial<TMessage>} savedMessage
+   * @param {Object} options
+   * @param {Object} reqCtx
+   */
+  async condenseWebSearchResultsForHistory(message, savedMessage, options, reqCtx) {
+    if (!Array.isArray(message.content)) {
+      return;
+    }
+
+    const webSearchToolName = getWebSearchToolName();
+    const toolCallParts = message.content.filter(
+      (part) => part?.type === 'tool_call' && part.tool_call?.name === webSearchToolName,
+    );
+    if (toolCallParts.length === 0) {
+      return;
+    }
+
+    const appConfig = options.req?.config;
+    const endpoint = options.agent?.endpoint ?? options.endpoint;
+    const model = this.modelOptions?.model ?? this.model;
+    if (!appConfig || !endpoint || !model) {
+      return;
+    }
+
+    const deps = { appConfig, endpoint, model };
+    let changed = false;
+
+    await Promise.all(
+      toolCallParts.map(async (part) => {
+        const original = part.tool_call.output;
+        if (typeof original !== 'string') {
+          return;
+        }
+        const condensed = await condenseWebSearchOutputForHistory(original, deps);
+        if (condensed !== original) {
+          part.tool_call.output = condensed;
+          changed = true;
+        }
+      }),
+    );
+
+    if (!changed) {
+      return;
+    }
+
+    await db.updateMessage(
+      reqCtx.userId,
+      { messageId: savedMessage.messageId, content: message.content },
+      { context: 'api/app/clients/BaseClient.js - condenseWebSearchResultsForHistory' },
+    );
   }
 
   /**

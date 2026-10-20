@@ -3,8 +3,8 @@ import * as fs from 'fs';
 import { v4 } from 'uuid';
 import * as path from 'path';
 import { Types } from 'mongoose';
-import { FileSources } from 'librechat-data-provider';
 import { tool } from '@librechat/agents/langchain/tools';
+import { FileSources, extractEnvVariable } from 'librechat-data-provider';
 import type { DynamicStructuredTool } from '@librechat/agents/langchain/tools';
 import type { IMongoFile } from '@librechat/data-schemas';
 import type { AppConfig } from '@librechat/data-schemas';
@@ -204,13 +204,18 @@ export function createPaperSummarizerTool(
         endpoint: deps.endpoint,
         appConfig: deps.appConfig,
       });
-      if (!endpointConfig?.apiKey || !endpointConfig.baseURL) {
+      // getCustomEndpointConfig() returns the config as stored — `${VAR}`
+      // placeholders (e.g. baseURL: '${SSH_TUNNEL_BASE_URL}') are not resolved
+      // automatically; extractEnvVariable() is the caller's responsibility.
+      const apiKey = extractEnvVariable(endpointConfig?.apiKey ?? '');
+      const baseURL = extractEnvVariable(endpointConfig?.baseURL ?? '');
+      if (!apiKey || !baseURL) {
         throw new Error(`No credentials configured for endpoint "${deps.endpoint}".`);
       }
 
       const summaries = await summarizeParagraphs(paragraphs, {
-        apiKey: endpointConfig.apiKey,
-        baseURL: endpointConfig.baseURL,
+        apiKey,
+        baseURL,
         model: deps.model,
       });
       const markdown = buildMarkdown(sourceFilename, paragraphs, summaries);

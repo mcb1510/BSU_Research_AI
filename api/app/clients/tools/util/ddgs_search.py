@@ -14,10 +14,7 @@ import sys
 
 from ddgs import DDGS
 
-# Tried in order within a single process invocation (no extra subprocess cost).
-# Google is the primary backend; the others are fallbacks for when it is
-# rate-limited, blocked, or hits a transient TLS/network error.
-SEARCH_BACKENDS = ["Google", "Bing", "DuckDuckGo", "Brave"]
+SEARCH_BACKENDS = ["Google"]
 
 
 def web_search(query: str, max_results: int = 5):

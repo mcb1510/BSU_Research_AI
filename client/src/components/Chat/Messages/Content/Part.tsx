@@ -29,6 +29,7 @@ import { getCachedPreview, getActivityLabelPart, getActivityLabelText } from '~/
 import { getAskUserQuestionPart } from '~/utils/approval';
 import AskUserQuestionCall from './AskUserQuestionCall';
 import { isBashProgrammaticToolCall } from './routing';
+import WebSearchSources from './WebSearchSources';
 import { ErrorMessage } from './MessageContent';
 import AskUserQuestion from './AskUserQuestion';
 import RetrievalCall from './RetrievalCall';
@@ -373,17 +374,20 @@ const Part = memo(function Part({
           );
         } else if (toolCall.name === Tools.web_search) {
           return (
-            <WebSearch
-              args={toolCall.args}
-              output={toolCall.output ?? ''}
-              initialProgress={toolCall.progress ?? 0.1}
-              isSubmitting={isSubmitting}
-              runStepStatus={toolCall.runStepStatus}
-              attachments={attachments}
-              hideAttachments={hideAttachments}
-              isLast={isLast}
-              onExpand={onToolExpand}
-            />
+            <>
+              <WebSearch
+                args={toolCall.args}
+                output={toolCall.output ?? ''}
+                initialProgress={toolCall.progress ?? 0.1}
+                isSubmitting={isSubmitting}
+                runStepStatus={toolCall.runStepStatus}
+                attachments={attachments}
+                hideAttachments={hideAttachments}
+                isLast={isLast}
+                onExpand={onToolExpand}
+              />
+              <WebSearchSources output={toolCall.output} />
+            </>
           );
         } else if (toolCall.name === 'file_search' || toolCall.name === 'retrieval') {
           return (

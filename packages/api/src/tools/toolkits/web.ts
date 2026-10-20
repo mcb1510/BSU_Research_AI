@@ -2,9 +2,12 @@ import { z } from 'zod';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { execFile } from 'node:child_process';
+import { logger } from '@librechat/data-schemas';
 import { tool } from '@librechat/agents/langchain/tools';
-import { Tools, replaceSpecialVars } from 'librechat-data-provider';
+import { Tools, replaceSpecialVars, extractEnvVariable } from 'librechat-data-provider';
 import type { DynamicStructuredTool } from '@librechat/agents/langchain/tools';
+import type { AppConfig } from '@librechat/data-schemas';
+import { getCustomEndpointConfig } from '~/app/config';
 
 const execFileAsync = promisify(execFile);
 
@@ -15,6 +18,7 @@ const DEFAULT_MIN_CONTENT_LENGTH = 300;
 const DEFAULT_SEARCH_TIMEOUT_MS = 15_000;
 const DEFAULT_READ_TIMEOUT_MS = 10_000;
 const DEFAULT_MAX_PAGE_READS_PER_TURN = 5;
+const DEFAULT_MAX_SEARCHES_PER_TURN = 3;
 
 const LOW_QUALITY_DOMAINS = [
   'facebook.com',
@@ -294,30 +298,56 @@ async function runDdgsScript<T extends DdgsScriptResponse>(
 async function runDdgsSearch(query: string, maxResults: number): Promise<DdgsSearchResult[]> {
   const timeoutMs = getPositiveIntegerEnv('DDGS_SEARCH_TIMEOUT_MS', DEFAULT_SEARCH_TIMEOUT_MS);
 
-  const { results } = await runDdgsScript<DdgsSearchResponse>(
-    {
-      mode: 'search',
-      query,
-      max_results: maxResults,
-    },
-    timeoutMs,
+  logger.debug(`[web_search] search query="${query}" max_results=${maxResults}`);
+
+  let results: DdgsSearchResult[] | undefined;
+  try {
+    ({ results } = await runDdgsScript<DdgsSearchResponse>(
+      {
+        mode: 'search',
+        query,
+        max_results: maxResults,
+      },
+      timeoutMs,
+    ));
+  } catch (error) {
+    logger.warn(`[web_search] search failed query="${query}": ${(error as Error).message}`);
+    throw error;
+  }
+
+  const filtered = (results ?? []).filter((result) => Boolean(result.title) && Boolean(result.url));
+  logger.debug(
+    `[web_search] search returned ${filtered.length} result(s) for query="${query}": ${filtered
+      .map((r) => r.url)
+      .join(', ')}`,
   );
 
-  return (results ?? []).filter((result) => Boolean(result.title) && Boolean(result.url));
+  return filtered;
 }
 
 async function runDdgsRead(url: string): Promise<string> {
   const timeoutMs = getPositiveIntegerEnv('DDGS_READ_TIMEOUT_MS', DEFAULT_READ_TIMEOUT_MS);
 
-  const { content } = await runDdgsScript<DdgsReadResponse>(
-    {
-      mode: 'read',
-      url,
-    },
-    timeoutMs,
-  );
+  logger.debug(`[web_search] read url="${url}"`);
 
-  return content?.trim() ?? '';
+  let content: string | undefined;
+  try {
+    ({ content } = await runDdgsScript<DdgsReadResponse>(
+      {
+        mode: 'read',
+        url,
+      },
+      timeoutMs,
+    ));
+  } catch (error) {
+    logger.warn(`[web_search] read failed url="${url}": ${(error as Error).message}`);
+    throw error;
+  }
+
+  const trimmed = content?.trim() ?? '';
+  logger.debug(`[web_search] read ${trimmed.length} char(s) from url="${url}"`);
+
+  return trimmed;
 }
 
 function getHostname(url: string): string {
@@ -391,6 +421,137 @@ function rankSearchResults(results: DdgsSearchResult[]): RankedSearchResult[] {
     .sort((a, b) => b.sourceScore - a.sourceScore);
 }
 
+/** Below this, a page's content is already short enough that condensing it
+ *  for history isn't worth a model round trip. */
+const MIN_CONDENSE_LENGTH = 2_000;
+
+export interface CondenseWebSearchDeps {
+  appConfig: AppConfig;
+  /** Custom endpoint name whose credentials run the condense call (the same
+   *  model the researcher is already chatting with). */
+  endpoint: string;
+  model: string;
+}
+
+async function condensePageContent(
+  content: string,
+  query: string | undefined,
+  credentials: { apiKey: string; baseURL: string; model: string },
+): Promise<string> {
+  const response = await fetch(`${credentials.baseURL.replace(/\/$/, '')}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${credentials.apiKey}`,
+    },
+    body: JSON.stringify({
+      model: credentials.model,
+      messages: [
+        {
+          role: 'system',
+          content:
+            'Summarize the following webpage content concisely, keeping every fact relevant ' +
+            (query ? `to the query "${query}"` : "to the page's main topic") +
+            '. This summary replaces the full page in conversation history, so include ' +
+            'specific facts, numbers, and names — not vague generalities. Respond with only ' +
+            'the summary, no preamble.',
+        },
+        { role: 'user', content },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Condense request failed (${response.status})`);
+  }
+
+  const data = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+  const summary = data.choices?.[0]?.message?.content;
+  if (!summary) {
+    throw new Error('Condense request returned no content.');
+  }
+  return summary.trim();
+}
+
+/**
+ * Condenses a `web_search` tool's stored output before it's persisted for
+ * future-turn replay, replacing a large page-read's content with a short
+ * summary. Called AFTER the model has already used the full content to
+ * answer the current turn — this only shrinks what later turns in the same
+ * conversation resend as history, not what the model saw just now.
+ *
+ * Safe to call on any tool output: returns it unchanged if it isn't a
+ * `web_search` read result, is already short, or the condense call fails for
+ * any reason (credentials missing, request error) — history replay is never
+ * worse than before, only sometimes not shrunk.
+ */
+export async function condenseWebSearchOutputForHistory(
+  rawOutput: string,
+  deps: CondenseWebSearchDeps,
+): Promise<string> {
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(rawOutput) as Record<string, unknown>;
+  } catch {
+    return rawOutput;
+  }
+
+  const query = typeof parsed.query === 'string' ? parsed.query : undefined;
+
+  let target: { content?: unknown } | undefined;
+  if (parsed.type === 'webpage') {
+    target = parsed;
+  } else if (
+    parsed.type === 'search_and_read' &&
+    parsed.selected != null &&
+    typeof parsed.selected === 'object'
+  ) {
+    target = parsed.selected as { content?: unknown };
+  }
+
+  if (
+    !target ||
+    typeof target.content !== 'string' ||
+    target.content.length < MIN_CONDENSE_LENGTH
+  ) {
+    return rawOutput;
+  }
+
+  try {
+    const endpointConfig = getCustomEndpointConfig({
+      endpoint: deps.endpoint,
+      appConfig: deps.appConfig,
+    });
+    // getCustomEndpointConfig() returns the config as stored — `${VAR}`
+    // placeholders (e.g. baseURL: '${SSH_TUNNEL_BASE_URL}') are not resolved
+    // automatically; extractEnvVariable() is the caller's responsibility,
+    // same as every other direct custom-endpoint consumer in this codebase.
+    const apiKey = extractEnvVariable(endpointConfig?.apiKey ?? '');
+    const baseURL = extractEnvVariable(endpointConfig?.baseURL ?? '');
+    if (!apiKey || !baseURL) {
+      return rawOutput;
+    }
+
+    const summary = await condensePageContent(target.content, query, {
+      apiKey,
+      baseURL,
+      model: deps.model,
+    });
+
+    target.content = summary;
+    (target as Record<string, unknown>).condensedForHistory = true;
+
+    return JSON.stringify(parsed);
+  } catch (error) {
+    logger.warn(
+      `[web_search] Failed to condense tool output for history: ${(error as Error).message}`,
+    );
+    return rawOutput;
+  }
+}
+
 function truncateContent(content: string, maximumLength: number): TruncatedContent {
   const originalLength = content.length;
 
@@ -439,8 +600,23 @@ function getMaxResults(requested?: number): number {
   return Math.min(getPositiveIntegerEnv('DDGS_MAX_RESULTS', DEFAULT_MAX_RESULTS), 10);
 }
 
-async function executeSearch(input: WebSearchToolInput): Promise<string> {
+async function executeSearch(
+  input: WebSearchToolInput,
+  searchBudget: PageReadBudget,
+): Promise<string> {
   const query = requireQuery(input);
+
+  if (searchBudget.consume(1) < 1) {
+    return JSON.stringify({
+      type: 'search_results',
+      query,
+      budgetExceeded: true,
+      warning:
+        'Search limit reached for this turn. Answer the user using the information ' +
+        'already gathered instead of searching again.',
+    });
+  }
+
   const maxResults = getMaxResults(input.maxResults);
   const results = await runDdgsSearch(query, maxResults);
 
@@ -491,8 +667,21 @@ async function executeRead(input: WebSearchToolInput, budget: PageReadBudget): P
 async function executeSearchAndRead(
   input: WebSearchToolInput,
   budget: PageReadBudget,
+  searchBudget: PageReadBudget,
 ): Promise<string> {
   const query = requireQuery(input);
+
+  if (searchBudget.consume(1) < 1) {
+    return JSON.stringify({
+      type: 'search_and_read',
+      query,
+      budgetExceeded: true,
+      warning:
+        'Search limit reached for this turn. Answer the user using the information ' +
+        'already gathered instead of searching again.',
+    });
+  }
+
   const maxResults = getMaxResults(input.maxResults);
   const results = await runDdgsSearch(query, maxResults);
   const rankedResults = rankSearchResults(results);
@@ -584,10 +773,16 @@ async function executeSearchAndRead(
 
 export const DDGS_WEB_SEARCH_TOOL_DESCRIPTION: string =
   'Search the web, read a specific webpage, or search once and automatically read ' +
-  'the best available result. Use action="search_and_read" by default for simple ' +
-  'current factual questions. Use action="search" followed by action="read" when ' +
-  'manual source selection is important. Search results contain title, URL, and ' +
-  'snippet; retrieved pages contain Markdown content for evidence-based answers.';
+  'the best available result. Use action="search" by default and answer from the ' +
+  'returned snippets whenever they already contain the answer — reading a full page ' +
+  'costs far more tokens than a snippet, so only call action="read" (on the most ' +
+  'relevant result) or action="search_and_read" when the snippets are insufficient, ' +
+  'ambiguous, or the question specifically requires detail only the full page has. ' +
+  'Search results contain title, URL, and snippet; retrieved pages contain Markdown ' +
+  'content for evidence-based answers when a snippet genuinely is not enough. Always ' +
+  'cite the specific source(s) you used as real Markdown links — [source title](url) ' +
+  '— using the exact url field from the result, so the user can click through. Do ' +
+  'this every time you use retrieved information, not only when asked.';
 
 /**
  * Creates a keyless DDGS-backed web tool.
@@ -601,18 +796,21 @@ export function createDdgsWebSearchTool(): DynamicStructuredTool<typeof webSearc
   const budget = new PageReadBudget(
     getPositiveIntegerEnv('DDGS_MAX_PAGE_READS_PER_TURN', DEFAULT_MAX_PAGE_READS_PER_TURN),
   );
+  const searchBudget = new PageReadBudget(
+    getPositiveIntegerEnv('DDGS_MAX_SEARCHES_PER_TURN', DEFAULT_MAX_SEARCHES_PER_TURN),
+  );
 
   return tool(
     async (input: WebSearchToolInput) => {
       switch (input.action) {
         case 'search':
-          return executeSearch(input);
+          return executeSearch(input, searchBudget);
 
         case 'read':
           return executeRead(input, budget);
 
         case 'search_and_read':
-          return executeSearchAndRead(input, budget);
+          return executeSearchAndRead(input, budget, searchBudget);
 
         default: {
           const exhaustiveCheck: never = input.action;
