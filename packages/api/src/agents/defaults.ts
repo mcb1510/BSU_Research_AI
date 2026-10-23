@@ -35,6 +35,19 @@ export const DEFAULT_AGENTS: DefaultAgentDefinition[] = [
     model: 'muse-glimmer',
     tools: ['paper_summarizer'],
   },
+  {
+    id: 'agent_test',
+    name: 'Test',
+    description: 'Writes a short story to a folder you choose. Only works in the desktop app.',
+    instructions:
+      'Write a short story about lions. Once you have written it, use the write_to_desktop ' +
+      'tool with a short filename ending in .md and the story as content. This only works ' +
+      'inside the BSU Research AI desktop app, where the user has chosen an output folder — ' +
+      'if the user is in a web browser instead, tell them so plainly.',
+    provider: 'Nemotron (DGX Spark)',
+    model: 'nemotron-3.5-bolt',
+    tools: ['write_to_desktop'],
+  },
 ];
 
 export interface SyncDefaultAgentsDeps {

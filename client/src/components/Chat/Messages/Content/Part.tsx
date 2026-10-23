@@ -29,6 +29,7 @@ import { getCachedPreview, getActivityLabelPart, getActivityLabelText } from '~/
 import { getAskUserQuestionPart } from '~/utils/approval';
 import AskUserQuestionCall from './AskUserQuestionCall';
 import { isBashProgrammaticToolCall } from './routing';
+import DesktopWriteResult from './DesktopWriteResult';
 import WebSearchSources from './WebSearchSources';
 import { ErrorMessage } from './MessageContent';
 import AskUserQuestion from './AskUserQuestion';
@@ -389,6 +390,8 @@ const Part = memo(function Part({
               <WebSearchSources output={toolCall.output} />
             </>
           );
+        } else if (toolCall.name === 'write_to_desktop') {
+          return <DesktopWriteResult output={toolCall.output} />;
         } else if (toolCall.name === 'file_search' || toolCall.name === 'retrieval') {
           return (
             <RetrievalCall

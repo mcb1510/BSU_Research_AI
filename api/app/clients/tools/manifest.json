@@ -105,6 +105,13 @@
     "authConfig": []
   },
   {
+    "name": "Write to Desktop",
+    "pluginKey": "write_to_desktop",
+    "description": "Writes a text file to the researcher's own Desktop, inside the BSU Research AI desktop app only.",
+    "agentsOnly": true,
+    "authConfig": []
+  },
+  {
     "name": "Stable Diffusion",
     "pluginKey": "stable-diffusion",
     "description": "Generate photo-realistic images given any text input.",

@@ -13,7 +13,6 @@ jest.mock('~/data-provider', () => ({
 }));
 
 const mockTranslations: Record<string, string> = {
-  com_ui_latest_footer: 'Every AI for Everyone.',
   com_ui_privacy_policy: 'Privacy policy',
   com_ui_terms_of_service: 'Terms of service',
 };

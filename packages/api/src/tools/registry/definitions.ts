@@ -2,6 +2,7 @@ import { CalculatorToolDefinition } from '@librechat/agents';
 import type { ExtendedJsonSchema } from './schema';
 import { AskUserQuestionToolDefinition } from '~/agents/hitl/askUserQuestionTool';
 import { PaperSummarizerToolDefinition } from '~/tools/toolkits/paperSummarizer';
+import { DesktopWriteToolDefinition } from '~/tools/toolkits/desktopWrite';
 import { DdgsWebSearchToolDefinition } from '~/tools/toolkits/web';
 import { geminiToolkit } from '~/tools/toolkits/gemini';
 import { oaiToolkit } from '~/tools/toolkits/oai';
@@ -454,6 +455,12 @@ const agentToolDefinitions: Record<string, ToolRegistryDefinition> = {
     name: PaperSummarizerToolDefinition.name,
     description: PaperSummarizerToolDefinition.description,
     schema: PaperSummarizerToolDefinition.schema as unknown as ExtendedJsonSchema,
+    toolType: 'builtin',
+  },
+  [DesktopWriteToolDefinition.name]: {
+    name: DesktopWriteToolDefinition.name,
+    description: DesktopWriteToolDefinition.description,
+    schema: DesktopWriteToolDefinition.schema as unknown as ExtendedJsonSchema,
     toolType: 'builtin',
   },
   [AskUserQuestionToolDefinition.name]: {

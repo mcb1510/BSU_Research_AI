@@ -44,6 +44,7 @@ import AskUserQuestionPopover from './AskUserQuestionPopover';
 import InterruptSteerButton from './InterruptSteerButton';
 import PastedTextDialog from './Files/PastedTextDialog';
 import DuringRunSendButton from './DuringRunSendButton';
+import DesktopFolderPicker from './DesktopFolderPicker';
 import ProjectLandingChip from '../ProjectLandingChip';
 import { useGetStartupConfig } from '~/data-provider';
 import { mainTextareaId, BadgeItem } from '~/common';
@@ -693,6 +694,7 @@ const ChatForm = memo(function ChatForm({
             {index === 0 && conversationId != null && (
               <PendingToolApprovalPanel conversationId={conversationId} />
             )}
+            {index === 0 && conversation?.agent_id === 'agent_test' && <DesktopFolderPicker />}
             <SkillsCommand
               index={index}
               textAreaRef={textAreaRef}

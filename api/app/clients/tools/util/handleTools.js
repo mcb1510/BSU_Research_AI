@@ -23,6 +23,7 @@ const {
   ASK_USER_QUESTION_TOOL_NAME,
   createDdgsWebSearchTool,
   createPaperSummarizerTool,
+  createDesktopWriteTool,
   buildWebSearchDynamicContext,
   codeExecutionAuthHeaders,
   resolveCodeExecutionContext,
@@ -469,6 +470,9 @@ const loadTools = async ({
           model: agent?.model ?? model,
           createFile,
         });
+      continue;
+    } else if (tool === Tools.write_to_desktop) {
+      requestedTools[tool] = async () => createDesktopWriteTool();
       continue;
     } else if (tool === ASK_USER_QUESTION_TOOL_NAME) {
       requestedTools[tool] = async () => createAskUserQuestionTool();
