@@ -11,7 +11,7 @@ import { getCustomEndpointConfig } from '~/app/config';
 
 const execFileAsync = promisify(execFile);
 
-const DEFAULT_MAX_RESULTS = 5;
+const DEFAULT_MAX_RESULTS = 3;
 const DEFAULT_MAX_READ_ATTEMPTS = 2;
 const DEFAULT_MAX_CONTENT_LENGTH = 15_000;
 const DEFAULT_MIN_CONTENT_LENGTH = 300;
@@ -183,9 +183,9 @@ const webSearchToolSchema: z.ZodObject<
     .number()
     .int()
     .min(1)
-    .max(10)
+    .max(3)
     .optional()
-    .describe('Maximum number of search results. Defaults to 5.'),
+    .describe('Maximum number of search results. Defaults to 3.'),
 });
 
 type WebSearchToolInput = z.infer<typeof webSearchToolSchema>;
@@ -597,7 +597,7 @@ function getMaxResults(requested?: number): number {
     return requested;
   }
 
-  return Math.min(getPositiveIntegerEnv('DDGS_MAX_RESULTS', DEFAULT_MAX_RESULTS), 10);
+  return Math.min(getPositiveIntegerEnv('DDGS_MAX_RESULTS', DEFAULT_MAX_RESULTS), 3);
 }
 
 async function executeSearch(
@@ -887,8 +887,8 @@ export const DdgsWebSearchToolDefinition: DdgsWebSearchToolDefinitionShape = {
       maxResults: {
         type: 'integer',
         minimum: 1,
-        maximum: 10,
-        description: 'Maximum number of search results. Defaults to the configured value or 5.',
+        maximum: 3,
+        description: 'Maximum number of search results. Defaults to the configured value or 3.',
       },
     },
     required: ['action'],

@@ -41,6 +41,7 @@ const {
   createAgentEventActionRecorder,
   isHITLEnabled,
   agentRequestsAskUserQuestion,
+  agentRequestsDesktopTerminal,
   resolveAgentTurnExecutionPlan,
   logAgentMemorySnapshot,
   getCodeWorkspaceSelectionErrorDetails,
@@ -2024,7 +2025,9 @@ const ResumableAgentController = async (req, res, next, initializeClient, addTit
     ].filter(Boolean);
     const eventActorMayPause =
       isHITLEnabled(agentsConfig?.toolApproval) ||
-      eventActorAgents.some(agentRequestsAskUserQuestion);
+      eventActorAgents.some(
+        (agent) => agentRequestsAskUserQuestion(agent) || agentRequestsDesktopTerminal(agent),
+      );
     const turnExecutionPlan = resolveAgentTurnExecutionPlan({
       conversationId,
       parentMessageId,

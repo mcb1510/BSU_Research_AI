@@ -112,6 +112,13 @@
     "authConfig": []
   },
   {
+    "name": "Run on Desktop",
+    "pluginKey": "run_on_desktop",
+    "description": "Run a command in a user-selected workspace through the BSU Research AI desktop app only.",
+    "agentsOnly": true,
+    "authConfig": []
+  },
+  {
     "name": "Stable Diffusion",
     "pluginKey": "stable-diffusion",
     "description": "Generate photo-realistic images given any text input.",

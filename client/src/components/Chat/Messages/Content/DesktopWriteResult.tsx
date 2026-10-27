@@ -5,26 +5,6 @@ import { desktopOutputFolderAtom } from '~/store/desktopFolders';
 import { useLocalize } from '~/hooks';
 import cn from '~/utils/cn';
 
-/** Exposed by the Electron desktop app's preload script (see
- *  bsu-research-ai-desktop/preload.js). Absent entirely in a regular
- *  browser tab — that's how this component tells the two apart. Every
- *  function here only works on a folder the researcher already picked via
- *  `pickFolder` this session (enforced in main.js, not trusted here). */
-declare global {
-  interface Window {
-    desktopBridge?: {
-      pickFolder: () => Promise<{ folderPath: string | null }>;
-      writeFile: (
-        folderPath: string,
-        filename: string,
-        content: string,
-      ) => Promise<{ path: string }>;
-      readFile: (folderPath: string, filename: string) => Promise<{ content: string }>;
-      listFolder: (folderPath: string) => Promise<{ files: string[] }>;
-    };
-  }
-}
-
 interface ParsedWriteRequest {
   filename: string;
   content: string;

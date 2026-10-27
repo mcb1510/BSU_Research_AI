@@ -694,7 +694,10 @@ const ChatForm = memo(function ChatForm({
             {index === 0 && conversationId != null && (
               <PendingToolApprovalPanel conversationId={conversationId} />
             )}
-            {index === 0 && conversation?.agent_id === 'agent_test' && <DesktopFolderPicker />}
+            {index === 0 &&
+              conversation?.agent_id != null &&
+              typeof window !== 'undefined' &&
+              window.desktopBridge != null && <DesktopFolderPicker />}
             <SkillsCommand
               index={index}
               textAreaRef={textAreaRef}

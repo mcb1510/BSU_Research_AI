@@ -44,6 +44,11 @@ const loadProjectWorkspace = () =>
     Component: m.ProjectWorkspace,
   }));
 
+const loadKiroWorkspace = () =>
+  import('~/components/Kiro/Workspace').then((m) => ({
+    Component: m.default,
+  }));
+
 const baseEl = document.querySelector('base');
 const baseHref = baseEl?.getAttribute('href') || '/';
 
@@ -126,6 +131,10 @@ export const router = createBrowserRouter(
             {
               path: 'search',
               element: <Search />,
+            },
+            {
+              path: 'kiro',
+              lazy: loadKiroWorkspace,
             },
             {
               path: 'prompts',

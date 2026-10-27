@@ -47,4 +47,15 @@ describe('loadAndFormatTools', () => {
       expect(fs.existsSync(path.join(directory, 'Example.test.js.loaded'))).toBe(false);
     },
   );
+
+  it('adds the desktop terminal tool to the agent tool catalog', () => {
+    const tools = loadAndFormatTools({ directory });
+
+    expect(tools.run_on_desktop.function).toMatchObject({
+      name: 'run_on_desktop',
+      parameters: expect.objectContaining({
+        required: expect.arrayContaining(['workspace', 'executable']),
+      }),
+    });
+  });
 });

@@ -93,6 +93,10 @@ import {
   exemptAskUserQuestionFromApproval,
 } from '~/agents/hitl/policy';
 import {
+  createDesktopTerminalTool,
+  DesktopTerminalToolDefinition,
+} from '~/tools/toolkits/desktopTerminal';
+import {
   ASK_USER_QUESTION_TOOL_NAME,
   createAskUserQuestionTool,
 } from '~/agents/hitl/askUserQuestionTool';
@@ -1764,6 +1768,21 @@ export function agentRequestsAskUserQuestion(agent: {
   );
 }
 
+/** Whether an agent has opted into the desktop command tool on any tool surface. */
+export function agentRequestsDesktopTerminal(agent: {
+  tools?: unknown[];
+  toolRegistry?: Map<string, unknown>;
+  toolDefinitions?: Array<{ name: string }>;
+}): boolean {
+  const toolName = DesktopTerminalToolDefinition.name;
+  return (
+    agent.tools?.some((tool) => (tool as { name?: string } | undefined)?.name === toolName) ===
+      true ||
+    agent.toolRegistry?.has(toolName) === true ||
+    agent.toolDefinitions?.some((def) => def.name === toolName) === true
+  );
+}
+
 /**
  * Whether the admin tool filter (`includedTools` allowlist, else `filteredTools`
  * exclude list — same precedence as `loadAndFormatTools`) disables
@@ -2478,19 +2497,36 @@ export async function createRun({
      */
     let tools = agent.tools;
     let graphTools: GenericTool[] | undefined;
-    if (agentRequestsAskUserQuestion(agent)) {
-      tools = tools?.filter(
-        (tool) => (tool as { name?: string } | undefined)?.name !== ASK_USER_QUESTION_TOOL_NAME,
+    const needsAskUserQuestion = agentRequestsAskUserQuestion(agent);
+    const needsDesktopTerminal = agentRequestsDesktopTerminal(agent);
+    if (needsAskUserQuestion || needsDesktopTerminal) {
+      tools = tools?.filter((tool) => {
+        const name = (tool as { name?: string } | undefined)?.name;
+        return name !== ASK_USER_QUESTION_TOOL_NAME && name !== DesktopTerminalToolDefinition.name;
+      });
+      toolDefinitions = toolDefinitions.filter(
+        (def) =>
+          def.name !== ASK_USER_QUESTION_TOOL_NAME &&
+          def.name !== DesktopTerminalToolDefinition.name,
       );
-      toolDefinitions = toolDefinitions.filter((def) => def.name !== ASK_USER_QUESTION_TOOL_NAME);
-      if (toolRegistry?.has(ASK_USER_QUESTION_TOOL_NAME)) {
+      if (
+        toolRegistry?.has(ASK_USER_QUESTION_TOOL_NAME) ||
+        toolRegistry?.has(DesktopTerminalToolDefinition.name)
+      ) {
         toolRegistry = new Map(toolRegistry);
         toolRegistry.delete(ASK_USER_QUESTION_TOOL_NAME);
+        toolRegistry.delete(DesktopTerminalToolDefinition.name);
       }
-      if (hitlCapable && !isSubagent && !askToolAdminDisabled) {
-        graphTools = [
-          createAskUserQuestionTool(toolInputValidationErrors) as unknown as GenericTool,
-        ];
+      if (hitlCapable && !isSubagent) {
+        graphTools = [];
+        if (needsAskUserQuestion && !askToolAdminDisabled) {
+          graphTools.push(
+            createAskUserQuestionTool(toolInputValidationErrors) as unknown as GenericTool,
+          );
+        }
+        if (needsDesktopTerminal) {
+          graphTools.push(createDesktopTerminalTool() as unknown as GenericTool);
+        }
       }
     }
 
@@ -2779,7 +2815,8 @@ export async function createRun({
    */
   const asksUserQuestions =
     hitlCapable && !askToolAdminDisabled && agents.some(agentRequestsAskUserQuestion);
-  if (hitl || asksUserQuestions || eventActorCheckpointing) {
+  const runsDesktopTerminal = hitlCapable && agents.some(agentRequestsDesktopTerminal);
+  if (hitl || asksUserQuestions || runsDesktopTerminal || eventActorCheckpointing) {
     const checkpointer = await getAgentCheckpointer(agentsEndpointConfig?.checkpointer);
     graphConfig.compileOptions = { ...graphConfig.compileOptions, checkpointer };
   }
@@ -2922,6 +2959,7 @@ export async function createRun({
         Constants.EXECUTE_CODE,
         Constants.BASH_TOOL,
         ASK_USER_QUESTION_TOOL_NAME,
+        DesktopTerminalToolDefinition.name,
         /**
          * Background-capable tools: eager execution could launch the detached
          * task with speculative/partial args before the final tool call, and a

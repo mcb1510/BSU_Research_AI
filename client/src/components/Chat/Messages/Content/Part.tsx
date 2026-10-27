@@ -26,6 +26,7 @@ import {
   SteerPart,
 } from './Parts';
 import { getCachedPreview, getActivityLabelPart, getActivityLabelText } from '~/utils';
+import DesktopTerminalResult from './DesktopTerminalResult';
 import { getAskUserQuestionPart } from '~/utils/approval';
 import AskUserQuestionCall from './AskUserQuestionCall';
 import { isBashProgrammaticToolCall } from './routing';
@@ -392,6 +393,8 @@ const Part = memo(function Part({
           );
         } else if (toolCall.name === 'write_to_desktop') {
           return <DesktopWriteResult output={toolCall.output} />;
+        } else if (toolCall.name === 'run_on_desktop') {
+          return <DesktopTerminalResult output={toolCall.output} />;
         } else if (toolCall.name === 'file_search' || toolCall.name === 'retrieval') {
           return (
             <RetrievalCall

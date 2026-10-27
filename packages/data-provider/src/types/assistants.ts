@@ -37,6 +37,7 @@ export enum Tools {
   bash_tool = 'bash_tool',
   paper_summarizer = 'paper_summarizer',
   write_to_desktop = 'write_to_desktop',
+  run_on_desktop = 'run_on_desktop',
 }
 
 export enum EToolResources {

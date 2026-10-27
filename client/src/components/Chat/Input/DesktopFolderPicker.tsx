@@ -2,30 +2,16 @@ import { useAtom } from 'jotai';
 import { FolderOpen } from 'lucide-react';
 import { Button } from '@librechat/client';
 import { desktopInputFolderAtom, desktopOutputFolderAtom } from '~/store/desktopFolders';
-import { useChatFormContext } from '~/Providers';
 import { useLocalize } from '~/hooks';
 import cn from '~/utils/cn';
 
-/** Only rendered for the "Test" agent (gated by its caller). Lets the
- *  researcher pick, via the Electron app's real OS folder dialog, which
- *  folder the agent reads its input document from and which folder it
- *  saves its output into — the only two folders the app can touch this
- *  session (see `authorizedFolders` in the desktop app's main.js). */
+/** Lets the researcher grant the active agent an input and output workspace
+ *  through Electron's native folder dialog. The desktop app can access only
+ *  folders granted this way during the current session. */
 export default function DesktopFolderPicker() {
   const localize = useLocalize();
-  const { setValue } = useChatFormContext();
   const [inputFolder, setInputFolder] = useAtom(desktopInputFolderAtom);
   const [outputFolder, setOutputFolder] = useAtom(desktopOutputFolderAtom);
-
-  const supported = typeof window !== 'undefined' && window.desktopBridge != null;
-
-  if (!supported) {
-    return (
-      <div className="mb-2 rounded-lg border border-border-medium bg-surface-secondary px-3 py-2 text-xs text-text-secondary">
-        {localize('com_ui_desktop_folder_unsupported')}
-      </div>
-    );
-  }
 
   const pickInputFolder = async () => {
     const { folderPath } = await window.desktopBridge!.pickFolder();
@@ -33,14 +19,6 @@ export default function DesktopFolderPicker() {
       return;
     }
     setInputFolder(folderPath);
-
-    const { files } = await window.desktopBridge!.listFolder(folderPath);
-    const firstFile = files[0];
-    if (!firstFile) {
-      return;
-    }
-    const { content } = await window.desktopBridge!.readFile(folderPath, firstFile);
-    setValue('text', content, { shouldValidate: true });
   };
 
   const pickOutputFolder = async () => {

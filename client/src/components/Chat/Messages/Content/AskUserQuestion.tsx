@@ -3,6 +3,7 @@ import { Button, TextareaAutosize, TooltipAnchor } from '@librechat/client';
 import { ChevronUp, MessageCircleQuestion, TriangleAlert } from 'lucide-react';
 import type { Agents } from 'librechat-data-provider';
 import { useApprovalContext, useAskSubmitStatus, useResumeSubmit } from './ApprovalContext';
+import DesktopTerminalExecution, { getDesktopCommand } from './DesktopTerminalExecution';
 import { splitOtherOption, ASK_USER_DECLINED_ANSWER } from '~/utils/approval';
 import useAskAnswerMode from '~/hooks/Input/useAskAnswerMode';
 import AskOptions from '~/components/Chat/ask/options';
@@ -31,6 +32,10 @@ export default function AskUserQuestion({
 }) {
   const conversationId = useContext(ChatContext)?.conversation?.conversationId;
   const answerMode = useAskAnswerMode(conversationId);
+  const desktopCommand = getDesktopCommand(question);
+  if (desktopCommand) {
+    return <DesktopTerminalExecution actionId={actionId} command={desktopCommand} />;
+  }
   const isLivePause = answerMode.liveAsk?.actionId === actionId;
   if (questions != null && questions.length > 0) {
     if (answerMode.popoverVisible && isLivePause) {

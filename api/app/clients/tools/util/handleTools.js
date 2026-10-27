@@ -24,6 +24,7 @@ const {
   createDdgsWebSearchTool,
   createPaperSummarizerTool,
   createDesktopWriteTool,
+  createDesktopTerminalTool,
   buildWebSearchDynamicContext,
   codeExecutionAuthHeaders,
   resolveCodeExecutionContext,
@@ -213,6 +214,7 @@ const loadTools = async ({
   fileStrategy,
   imageOutputType,
 }) => {
+  logger.debug(`[loadTools DEBUG] received tools: ${JSON.stringify(tools)}`);
   const toolConstructors = {
     flux: FluxAPI,
     calculator: Calculator,
@@ -473,6 +475,9 @@ const loadTools = async ({
       continue;
     } else if (tool === Tools.write_to_desktop) {
       requestedTools[tool] = async () => createDesktopWriteTool();
+      continue;
+    } else if (tool === Tools.run_on_desktop) {
+      requestedTools[tool] = async () => createDesktopTerminalTool();
       continue;
     } else if (tool === ASK_USER_QUESTION_TOOL_NAME) {
       requestedTools[tool] = async () => createAskUserQuestionTool();

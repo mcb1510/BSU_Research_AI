@@ -11,6 +11,7 @@ const {
   oaiToolkit,
   geminiToolkit,
   createAskUserQuestionTool,
+  createDesktopTerminalTool,
 } = require('@librechat/api');
 const { toolkits } = require('~/app/clients/tools/manifest');
 
@@ -89,6 +90,7 @@ function loadAndFormatTools({ directory, adminFilter = [], adminIncluded = [] })
   const basicToolInstances = [
     new Calculator(),
     createAskUserQuestionTool(),
+    createDesktopTerminalTool(),
     ...Object.values(oaiToolkit),
     ...Object.values(geminiToolkit),
   ];
