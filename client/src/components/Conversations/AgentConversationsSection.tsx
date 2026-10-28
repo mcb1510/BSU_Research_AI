@@ -1,5 +1,6 @@
 import { memo, useMemo } from 'react';
 import type { TConversation } from 'librechat-data-provider';
+import type { TranslationKeys } from '~/hooks/useLocalize';
 import { useActiveJobs } from '~/data-provider';
 import { useLocalize } from '~/hooks';
 import Convo from './Convo';
@@ -9,9 +10,11 @@ const noop = () => undefined;
 function AgentConversationsSection({
   conversations,
   toggleNav,
+  heading = 'com_sidepanel_tools',
 }: {
   conversations: TConversation[];
   toggleNav: (afterSlide?: () => void) => void;
+  heading?: TranslationKeys;
 }) {
   const localize = useLocalize();
   const { data: activeJobsData } = useActiveJobs();
@@ -26,9 +29,7 @@ function AgentConversationsSection({
 
   return (
     <div className="mb-2 text-sm text-text-primary">
-      <div className="px-3 py-1 text-xs font-medium text-text-secondary">
-        {localize('com_sidepanel_tools')}
-      </div>
+      <div className="px-3 py-1 text-xs font-medium text-text-secondary">{localize(heading)}</div>
       <ul className="flex flex-col gap-0.5 px-2">
         {conversations.map((conversation) => (
           <li key={conversation.conversationId}>

@@ -6,6 +6,10 @@ export type ConversationRenderProps = {
   /** Announced on the row's focusable element, and it appears only once the
    *  owning list can act on it, so a change here has to reach the DOM. */
   keyShortcuts?: string;
+  /** Bulk-selection state is rendered inside each row. */
+  selectionMode?: boolean;
+  selected?: boolean;
+  onSelectionChange?: (conversationId: string) => void;
 };
 
 export function areConversationIconFieldsEqual(
@@ -49,6 +53,9 @@ export function areConversationRenderPropsEqual(
   return (
     areConversationListItemFieldsEqual(prevProps.conversation, nextProps.conversation) &&
     prevProps.isGenerating === nextProps.isGenerating &&
-    prevProps.keyShortcuts === nextProps.keyShortcuts
+    prevProps.keyShortcuts === nextProps.keyShortcuts &&
+    prevProps.selectionMode === nextProps.selectionMode &&
+    prevProps.selected === nextProps.selected &&
+    prevProps.onSelectionChange === nextProps.onSelectionChange
   );
 }

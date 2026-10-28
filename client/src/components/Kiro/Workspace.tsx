@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Bot, Send, SquareTerminal } from 'lucide-react';
 import { Button, TextareaAutosize } from '@librechat/client';
+import DesktopFolderPicker from '~/components/Chat/Input/DesktopFolderPicker';
 import { useLocalize } from '~/hooks';
 
 type KiroEvent =
@@ -140,6 +141,9 @@ export default function KiroWorkspace() {
           </p>
         </div>
       </header>
+      <div className="mb-4 rounded-xl border border-border-light bg-surface-primary p-3">
+        <DesktopFolderPicker />
+      </div>
       <section className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto rounded-xl border border-border-light bg-surface-primary p-4">
         {messages.length === 0 && (
           <p className="text-sm text-text-secondary">{localize('com_ui_kiro_empty')}</p>

@@ -1,4 +1,4 @@
-import { useMemo, memo, type FC, useCallback, useEffect, useRef } from 'react';
+import { useMemo, memo, type FC, useCallback, useEffect, useRef, useState } from 'react';
 import { useDrop } from 'react-dnd';
 import throttle from 'lodash/throttle';
 import { useRecoilValue } from 'recoil';
@@ -12,6 +12,7 @@ import type { ConversationDragItem } from './dnd';
 import {
   chatFilterCountAtom,
   chatFilterTagsAtom,
+  chatSelectionModeAtom,
   chatSortAtom,
   isAlphabeticalSort,
   isArchivedChatViewAtom,
@@ -25,8 +26,8 @@ import {
   useUnpinDroppedConversation,
 } from './dnd';
 import { useLocalize, TranslationKeys, useElementSize, useOuterScrollWindow } from '~/hooks';
+import { useActiveJobs, useDeleteConversationMutation } from '~/data-provider';
 import { groupConversations, cn } from '~/utils';
-import { useActiveJobs } from '~/data-provider';
 import Convo from './Convo';
 import store from '~/store';
 
@@ -204,6 +205,11 @@ const Conversations: FC<ConversationsProps> = ({
   const filterTags = useAtomValue(chatFilterTagsAtom);
   const resetFilters = useSetAtom(resetChatFiltersAtom);
   const isSmallScreen = useMediaQuery('(max-width: 768px)');
+  const selectionMode = useAtomValue(chatSelectionModeAtom);
+  const setSelectionMode = useSetAtom(chatSelectionModeAtom);
+  const [selectedConversationIds, setSelectedConversationIds] = useState<Set<string>>(new Set());
+  const { mutateAsync: deleteConversation, isLoading: isDeleting } =
+    useDeleteConversationMutation();
   /* Dropping a chat on the Chats section makes it an ordinary chat: out of its
    * project, and unpinned. A root-list chat that is not pinned already is one,
    * so it is rejected rather than given a drop that would do nothing. */
@@ -271,6 +277,54 @@ const Conversations: FC<ConversationsProps> = ({
     () => rawConversations.filter(Boolean) as TConversation[],
     [rawConversations],
   );
+
+  useEffect(() => {
+    const availableIds = new Set(
+      filteredConversations.flatMap((conversation) =>
+        conversation.conversationId ? [conversation.conversationId] : [],
+      ),
+    );
+    setSelectedConversationIds((current) => {
+      const next = new Set([...current].filter((id) => availableIds.has(id)));
+      return next.size === current.size ? current : next;
+    });
+  }, [filteredConversations]);
+
+  const toggleSelection = useCallback((conversationId: string) => {
+    setSelectedConversationIds((current) => {
+      const next = new Set(current);
+      if (next.has(conversationId)) {
+        next.delete(conversationId);
+      } else {
+        next.add(conversationId);
+      }
+      return next;
+    });
+  }, []);
+
+  const leaveSelectionMode = useCallback(() => {
+    setSelectionMode(false);
+    setSelectedConversationIds(new Set());
+  }, [setSelectionMode]);
+
+  useEffect(() => {
+    if (!selectionMode) {
+      setSelectedConversationIds(new Set());
+    }
+  }, [selectionMode]);
+
+  const deleteSelected = useCallback(async () => {
+    if (selectedConversationIds.size === 0 || isDeleting) {
+      return;
+    }
+    if (!window.confirm(localize('com_ui_confirm_bulk_delete'))) {
+      return;
+    }
+    for (const conversationId of selectedConversationIds) {
+      await deleteConversation({ conversationId, source: 'button' });
+    }
+    leaveSelectionMode();
+  }, [deleteConversation, isDeleting, leaveSelectionMode, localize, selectedConversationIds]);
 
   /** The pinned section above carries pins, so they stay out of these groups — except in
    *  the archive, which that section does not cover: an archived pin would otherwise be
@@ -439,7 +493,13 @@ const Conversations: FC<ConversationsProps> = ({
               retainView={moveToTop}
               toggleNav={toggleNav}
               isGenerating={isGenerating}
-              draggable
+              draggable={!selectionMode}
+              selectionMode={selectionMode}
+              selected={
+                item.convo.conversationId != null &&
+                selectedConversationIds.has(item.convo.conversationId)
+              }
+              onSelectionChange={toggleSelection}
             />
           </MeasuredRow>
         );
@@ -447,7 +507,17 @@ const Conversations: FC<ConversationsProps> = ({
 
       return null;
     },
-    [cache, flattenedItems, moveToTop, toggleNav, activeJobIds, sort.field],
+    [
+      cache,
+      flattenedItems,
+      moveToTop,
+      toggleNav,
+      activeJobIds,
+      sort.field,
+      selectedConversationIds,
+      selectionMode,
+      toggleSelection,
+    ],
   );
 
   const getRowHeight = useCallback(
@@ -591,7 +661,31 @@ const Conversations: FC<ConversationsProps> = ({
         <ChatsHeader
           isExpanded={isChatsExpanded}
           onToggle={() => setIsChatsExpanded(!isChatsExpanded)}
-          trailing={chatsHeaderTrailing}
+          trailing={
+            <>
+              {selectionMode ? (
+                <>
+                  <button
+                    type="button"
+                    className="rounded-lg px-2 py-1 text-xs text-text-secondary hover:bg-surface-hover"
+                    onClick={leaveSelectionMode}
+                    disabled={isDeleting}
+                  >
+                    {localize('com_ui_cancel')}
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-lg px-2 py-1 text-xs text-text-destructive hover:bg-surface-hover disabled:opacity-50"
+                    onClick={() => void deleteSelected()}
+                    disabled={selectedConversationIds.size === 0 || isDeleting}
+                  >
+                    {localize('com_ui_delete_selected')}
+                  </button>
+                </>
+              ) : null}
+              {chatsHeaderTrailing}
+            </>
+          }
           highlight={isDropOver && canDrop}
         />
       </div>

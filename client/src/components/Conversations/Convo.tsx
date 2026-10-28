@@ -1,9 +1,9 @@
 import React, { memo, useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useDrag } from 'react-dnd';
+import { Link2 } from 'lucide-react';
 import { useRecoilValue } from 'recoil';
 import { useParams } from 'react-router-dom';
-import { Bot, Link2, MessageSquare } from 'lucide-react';
-import { Constants, isAgentsEndpoint } from 'librechat-data-provider';
+import { Constants } from 'librechat-data-provider';
 import { Spinner, useToastContext, useMediaQuery } from '@librechat/client';
 import type { TConversation } from 'librechat-data-provider';
 import type { ConversationDragItem } from './dnd';
@@ -14,7 +14,6 @@ import {
 } from '~/data-provider';
 import { useNavigateToConvo, useLocalize, useShiftKey } from '~/hooks';
 import { focusableInRow, resolveRowBeside } from './focus';
-import { areConversationRenderPropsEqual } from './utils';
 import { cn, logger, setDocumentTitle } from '~/utils';
 import { NotificationSeverity } from '~/common';
 import { CONVERSATION_DRAG_TYPE } from './dnd';
@@ -38,6 +37,9 @@ interface ConversationProps {
   /** Shortcuts an owning list handles for this row, declared on its focusable
    *  element so they are announced rather than left to be discovered. */
   keyShortcuts?: string;
+  selectionMode?: boolean;
+  selected?: boolean;
+  onSelectionChange?: (conversationId: string) => void;
 }
 
 function Conversation({
@@ -48,6 +50,9 @@ function Conversation({
   draggable = false,
   onRenamingChange,
   keyShortcuts,
+  selectionMode = false,
+  selected = false,
+  onSelectionChange,
 }: ConversationProps) {
   const params = useParams();
   const localize = useLocalize();
@@ -65,6 +70,12 @@ function Conversation({
   const isSharedBadgeVisible = conversation.isShared === true && sharedLinksEnabled;
   const isShiftHeld = useShiftKey();
   const { conversationId, title = '' } = conversation;
+
+  const toggleSelection = () => {
+    if (conversationId) {
+      onSelectionChange?.(conversationId);
+    }
+  };
 
   const [titleInput, setTitleInput] = useState(title || '');
   const [renaming, setRenamingState] = useState(false);
@@ -303,7 +314,7 @@ function Conversation({
   let actionContent: React.ReactNode = null;
   if (isGenerating) {
     actionContent = generatingSpinner;
-  } else if (!renaming) {
+  } else if (!renaming && !selectionMode) {
     actionContent = <ConvoActions {...convoOptionsProps} hasInteracted={hasInteracted} />;
   }
 
@@ -329,6 +340,10 @@ function Conversation({
         if (renaming) {
           return;
         }
+        if (selectionMode) {
+          toggleSelection();
+          return;
+        }
         if (e.button === 0) {
           handleNavigation(e.ctrlKey || e.metaKey);
         }
@@ -345,23 +360,29 @@ function Conversation({
           localize={localize}
         />
       ) : (
-        <ConvoLink
-          isActiveConvo={isActiveConvo}
-          isPopoverActive={isPopoverActive}
-          isHovered={isHovered}
-          isSharedBadgeVisible={isSharedBadgeVisible}
-          title={title}
-          onRename={handleRename}
-          isSmallScreen={isSmallScreen}
-          localize={localize}
-          keyShortcuts={keyShortcuts}
-        >
-          {isAgentsEndpoint(conversation.endpoint) ? (
-            <Bot className="icon-sm shrink-0 text-text-secondary" aria-hidden="true" />
-          ) : (
-            <MessageSquare className="icon-sm shrink-0 text-text-secondary" aria-hidden="true" />
+        <>
+          {selectionMode && (
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={toggleSelection}
+              onClick={(event) => event.stopPropagation()}
+              aria-label={title || localize('com_ui_untitled')}
+              className="ml-2 shrink-0"
+            />
           )}
-        </ConvoLink>
+          <ConvoLink
+            isActiveConvo={isActiveConvo}
+            isPopoverActive={isPopoverActive}
+            isHovered={isHovered}
+            isSharedBadgeVisible={isSharedBadgeVisible}
+            title={title}
+            onRename={handleRename}
+            isSmallScreen={isSmallScreen}
+            localize={localize}
+            keyShortcuts={keyShortcuts}
+          />
+        </>
       )}
       {isSharedBadgeVisible && (
         <Link2 className="icon-sm mr-1 shrink-0 text-text-secondary" aria-hidden="true" />
@@ -394,4 +415,4 @@ function Conversation({
   );
 }
 
-export default memo(Conversation, areConversationRenderPropsEqual);
+export default memo(Conversation);

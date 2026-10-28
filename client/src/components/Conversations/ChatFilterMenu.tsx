@@ -1,6 +1,6 @@
 import { memo, useCallback, useId, useMemo, useState } from 'react';
 import * as Ariakit from '@ariakit/react';
-import { useAtomValue, useSetAtom } from 'jotai';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { TooltipAnchor, buttonVariants, usePopoverZIndex } from '@librechat/client';
 import {
   Archive,
@@ -17,6 +17,7 @@ import type { ChatFilterStatus, ChatSortDirection, ChatSortField } from './chatF
 import type { TranslationKeys } from '~/hooks';
 import {
   chatFilterCountAtom,
+  chatSelectionModeAtom,
   chatFilterStatusAtom,
   chatSortAtom,
   isAlphabeticalSort,
@@ -100,6 +101,7 @@ const ChatFilterMenu = () => {
   const setStatus = useSetAtom(setChatFilterStatusAtom);
   const setSort = useSetAtom(chatSortAtom);
   const resetFilters = useSetAtom(resetChatFiltersAtom);
+  const [selectionMode, setSelectionMode] = useAtom(chatSelectionModeAtom);
 
   const alphabetical = isAlphabeticalSort(sort.field);
 
@@ -235,6 +237,18 @@ const ChatFilterMenu = () => {
         >
           <RotateCcw className="size-4 shrink-0" aria-hidden="true" />
           <span className="truncate">{localize('com_ui_clear_filters')}</span>
+        </Ariakit.MenuItem>
+
+        <Ariakit.MenuSeparator className="my-1 h-px border-border-medium" />
+        <Ariakit.MenuItem
+          onClick={() => setSelectionMode(!selectionMode)}
+          className={itemClassName}
+          data-testid="chat-selection-mode"
+        >
+          <MessagesSquare className="size-4 shrink-0 text-text-secondary" aria-hidden="true" />
+          <span className="truncate">
+            {localize(selectionMode ? 'com_ui_done' : 'com_ui_select')}
+          </span>
         </Ariakit.MenuItem>
       </Ariakit.Menu>
     </Ariakit.MenuProvider>

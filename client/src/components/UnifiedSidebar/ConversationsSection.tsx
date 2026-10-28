@@ -16,9 +16,7 @@ import {
   usePinnedConversationsQuery,
   useTitleGeneration,
 } from '~/data-provider';
-import AgentConversationsSection from '~/components/Conversations/AgentConversationsSection';
 import { useLocalize, useAuthContext, useLocalStorage, useNavScrolling } from '~/hooks';
-import ProjectsSection from '~/components/Conversations/ProjectsSection';
 import ChatFilterMenu from '~/components/Conversations/ChatFilterMenu';
 import PinnedSection from '~/components/Conversations/PinnedSection';
 import useSidebarToggle from '~/hooks/Nav/useSidebarToggle';
@@ -93,20 +91,15 @@ const ConversationsSection = memo(() => {
     return data ? data.pages.flatMap((page) => page.conversations) : [];
   }, [data]);
 
-  /** Agent conversations get their own section above the regular, date-grouped
-   *  list instead of being interleaved into it. */
-  const { agentConversations, conversations } = useMemo(() => {
-    const agentConversations: typeof allFetchedConversations = [];
-    const conversations: typeof allFetchedConversations = [];
-    for (const conversation of allFetchedConversations) {
-      if (conversation?.endpoint === EModelEndpoint.agents) {
-        agentConversations.push(conversation);
-      } else {
-        conversations.push(conversation);
-      }
-    }
-    return { agentConversations, conversations };
-  }, [allFetchedConversations]);
+  /** The Chat tab owns only ordinary conversations. Agent conversations live in the
+   *  dedicated Agents tab, so neither history is mixed into the other surface. */
+  const conversations = useMemo(
+    () =>
+      allFetchedConversations.filter(
+        (conversation) => conversation?.endpoint !== EModelEndpoint.agents,
+      ),
+    [allFetchedConversations],
+  );
 
   /** Pins are fetched on their own so one older than the first page of the chats list
    * still shows on first paint, instead of appearing only once that list scrolls to it.
@@ -125,7 +118,10 @@ const ConversationsSection = memo(() => {
      cache holds the same unarchived chats this section shows. */
   const pinnedConversations = useMemo(
     () =>
-      collectPinnedConversations(pinnedData?.conversations, isArchivedView ? [] : conversations),
+      collectPinnedConversations(
+        pinnedData?.conversations,
+        isArchivedView ? [] : conversations,
+      ).filter((conversation) => conversation.endpoint !== EModelEndpoint.agents),
     [pinnedData?.conversations, conversations, isArchivedView],
   );
 
@@ -213,9 +209,6 @@ const ConversationsSection = memo(() => {
             list still claims the space below them when there is little to show. */}
         <div ref={setScrollContent} className="flex min-h-full flex-col">
           {!search.query && (
-            <ProjectsSection toggleNav={toggleNav} isAuthenticated={isAuthenticated} />
-          )}
-          {!search.query && (
             <PinnedSection
               conversations={pinnedConversations}
               toggleNav={toggleNav}
@@ -228,9 +221,6 @@ const ConversationsSection = memo(() => {
                  enough to prune the stored order against. */
               membershipUpdatedAt={pinnedUpdatedAt}
             />
-          )}
-          {!search.query && (
-            <AgentConversationsSection conversations={agentConversations} toggleNav={toggleNav} />
           )}
           <Conversations
             conversations={conversations}

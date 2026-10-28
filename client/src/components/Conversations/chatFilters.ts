@@ -56,6 +56,9 @@ export const chatFilterStatusAtom = atom<ChatFilterStatus>('active');
 /** Bookmark (tag) filter, OR-matched by the server. Session-scoped, like the status. */
 export const chatFilterTagsAtom = atom<string[]>([]);
 
+/** Bulk selection belongs to the Chats surface and is intentionally ephemeral. */
+export const chatSelectionModeAtom = atom(false);
+
 /** Ordering is a preference rather than a filter, so it is the one part that is kept. */
 const storedChatSortAtom = createStorageAtom<ChatSort>('chatListSort', DEFAULT_CHAT_SORT);
 

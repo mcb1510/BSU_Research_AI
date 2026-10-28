@@ -44,6 +44,11 @@ const loadProjectWorkspace = () =>
     Component: m.ProjectWorkspace,
   }));
 
+const loadAgentsWorkspace = () =>
+  import('./Agents').then((m) => ({
+    Component: m.default,
+  }));
+
 const loadKiroWorkspace = () =>
   import('~/components/Kiro/Workspace').then((m) => ({
     Component: m.default,
@@ -134,6 +139,14 @@ export const router = createBrowserRouter(
             },
             {
               path: 'kiro',
+              element: <Navigate to="/agents/kiro" replace={true} />,
+            },
+            {
+              path: 'agents',
+              lazy: loadAgentsWorkspace,
+            },
+            {
+              path: 'agents/kiro',
               lazy: loadKiroWorkspace,
             },
             {

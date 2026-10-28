@@ -15,7 +15,6 @@ interface ConvoLinkProps {
   /** Shortcuts the row responds to, declared on the element that takes focus so
    *  assistive tech announces them when the user arrives here. */
   keyShortcuts?: string;
-  children: React.ReactNode;
 }
 
 const TITLE_SPEED_PX_PER_SECOND = 30;
@@ -43,7 +42,6 @@ const ConvoLink: React.FC<ConvoLinkProps> = ({
   isSmallScreen,
   localize,
   keyShortcuts,
-  children,
 }) => {
   const [isOverflowing, setIsOverflowing] = useState(false);
   const titleRef = useRef<HTMLSpanElement>(null);
@@ -141,7 +139,6 @@ const ConvoLink: React.FC<ConvoLinkProps> = ({
             })
       }
     >
-      {children}
       <span
         ref={titleRef}
         className={cn(

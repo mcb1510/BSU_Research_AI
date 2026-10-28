@@ -14,7 +14,6 @@ import { TraceButton, useTraceControl } from './Trace';
 import { useGetStartupConfig } from '~/data-provider';
 import ExportAndShareMenu from './ExportAndShareMenu';
 import SubagentThreadLink from './SubagentThreadLink';
-import AddMultiConvo from './AddMultiConvo';
 import { useHasAccess } from '~/hooks';
 import { cn } from '~/utils';
 import store from '~/store';
@@ -50,11 +49,6 @@ function Header({
     [startupConfig],
   );
 
-  const hasAccessToMultiConvo = useHasAccess({
-    permissionType: PermissionTypes.MULTI_CONVO,
-    permission: Permissions.USE,
-  });
-
   const hasAccessToTemporaryChat = useHasAccess({
     permissionType: PermissionTypes.TEMPORARY_CHAT,
     permission: Permissions.USE,
@@ -89,11 +83,6 @@ function Header({
         {!readOnly && <ModelSelector startupConfig={startupConfig} />}
         {!readOnly && interfaceConfig.presets === true && interfaceConfig.modelSelect === true && (
           <PresetsMenu />
-        )}
-        {hasAccessToMultiConvo === true && (
-          <div className="hidden items-center md:flex">
-            <AddMultiConvo />
-          </div>
         )}
       </div>
 
