@@ -26,6 +26,8 @@ const {
   createDesktopWriteTool,
   createDesktopTerminalTool,
   buildWebSearchDynamicContext,
+  buildBraveWebSearchContext,
+  createBraveWebSearchTool,
   codeExecutionAuthHeaders,
   resolveCodeExecutionContext,
 } = require('@librechat/api');
@@ -461,6 +463,13 @@ const loadTools = async ({
         toolContextMap[tool] = buildWebSearchContext();
         dynamicToolContextMap[tool] = buildWebSearchDynamicContext(options.req?.turnStartedAt);
         return createDdgsWebSearchTool();
+      };
+      continue;
+    } else if (tool === Tools.brave_search) {
+      requestedTools[tool] = async () => {
+        // Brave has its own tool contract and is never substituted for DDGS.
+        toolContextMap[tool] = buildBraveWebSearchContext();
+        return createBraveWebSearchTool();
       };
       continue;
     } else if (tool === Tools.paper_summarizer) {

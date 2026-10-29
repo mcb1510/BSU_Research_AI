@@ -118,6 +118,8 @@ export type TEndpointOption = Pick<
 export type TEphemeralAgent = {
   mcp?: string[];
   web_search?: boolean;
+  /** Use Brave as the provider for a normal-chat web-search turn. */
+  brave_search?: boolean;
   file_search?: boolean;
   execute_code?: boolean;
   artifacts?: string;

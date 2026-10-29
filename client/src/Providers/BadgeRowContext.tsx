@@ -19,6 +19,7 @@ interface BadgeRowContextType {
   skills: ReturnType<typeof useToolToggle>;
   memory: ReturnType<typeof useToolToggle>;
   webSearch: ReturnType<typeof useToolToggle>;
+  braveSearch: ReturnType<typeof useToolToggle>;
   artifacts: ReturnType<typeof useToolToggle>;
   fileSearch: ReturnType<typeof useToolToggle>;
   codeInterpreter: ReturnType<typeof useToolToggle>;
@@ -100,6 +101,7 @@ export default function BadgeRowProvider({
 
       const codeToggleKey = `${LocalStorageKeys.LAST_CODE_TOGGLE_}${storageSuffix}`;
       const webSearchToggleKey = `${LocalStorageKeys.LAST_WEB_SEARCH_TOGGLE_}${storageSuffix}`;
+      const braveSearchToggleKey = `${LocalStorageKeys.LAST_BRAVE_SEARCH_TOGGLE_}${storageSuffix}`;
       const fileSearchToggleKey = `${LocalStorageKeys.LAST_FILE_SEARCH_TOGGLE_}${storageSuffix}`;
       const artifactsToggleKey = `${LocalStorageKeys.LAST_ARTIFACTS_TOGGLE_}${storageSuffix}`;
       const skillsToggleKey = `${LocalStorageKeys.LAST_SKILLS_TOGGLE_}${storageSuffix}`;
@@ -107,6 +109,7 @@ export default function BadgeRowProvider({
 
       const codeToggleValue = getTimestampedValue(codeToggleKey);
       const webSearchToggleValue = getTimestampedValue(webSearchToggleKey);
+      const braveSearchToggleValue = getTimestampedValue(braveSearchToggleKey);
       const fileSearchToggleValue = getTimestampedValue(fileSearchToggleKey);
       const artifactsToggleValue = getTimestampedValue(artifactsToggleKey);
       const skillsToggleValue = getTimestampedValue(skillsToggleKey);
@@ -127,6 +130,14 @@ export default function BadgeRowProvider({
           initialValues[Tools.web_search] = JSON.parse(webSearchToggleValue);
         } catch (e) {
           console.error('Failed to parse web search toggle value:', e);
+        }
+      }
+
+      if (braveSearchToggleValue !== null) {
+        try {
+          initialValues[Tools.brave_search] = JSON.parse(braveSearchToggleValue);
+        } catch (e) {
+          console.error('Failed to parse Brave Search toggle value:', e);
         }
       }
 
@@ -236,6 +247,14 @@ export default function BadgeRowProvider({
     },
   });
 
+  const braveSearch = useToolToggle({
+    conversationId,
+    storageContextKey,
+    toolKey: Tools.brave_search,
+    localStorageKey: LocalStorageKeys.LAST_BRAVE_SEARCH_TOGGLE_,
+    isAuthenticated: true,
+  });
+
   /** FileSearch hook */
   const fileSearch = useToolToggle({
     conversationId,
@@ -284,6 +303,7 @@ export default function BadgeRowProvider({
     skills,
     memory,
     webSearch,
+    braveSearch,
     artifacts,
     fileSearch,
     agentsConfig,

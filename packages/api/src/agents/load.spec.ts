@@ -52,7 +52,6 @@ describe('loadEphemeralAgent ephemeral id stability (#14253 Bug 2)', () => {
     expect(a).toEqual(b);
   });
 });
-
 /** Custom endpoints carry their configured name in `endpoint` at runtime,
  *  which `TEndpointOption` types as `EModelEndpoint`. */
 const customEndpointOption = {

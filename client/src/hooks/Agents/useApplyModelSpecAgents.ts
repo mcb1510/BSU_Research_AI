@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { Constants } from 'librechat-data-provider';
 import type { TStartupConfig, TSubmission } from 'librechat-data-provider';
 import { useUpdateEphemeralAgent, useApplyNewAgentTemplate } from '~/store/agents';
@@ -18,6 +18,14 @@ import { getModelSpec, applyModelSpecEphemeralAgent } from '~/utils';
  */
 export function useApplyModelSpecEffects() {
   const updateEphemeralAgent = useUpdateEphemeralAgent();
+  /** De-dupes redundant re-invocations for the same (conversation, spec) pair —
+   *  callers like `ChatRoute`'s mount effect can fire again on an unrelated
+   *  dependency change while still on the same draft/spec, and without this guard
+   *  `applyModelSpecEphemeralAgent` would reapply spec defaults on top of a tool
+   *  the user already toggled for that draft, silently reverting their click. A
+   *  genuine transition (different conversation or different spec) still applies
+   *  fresh, as designed. */
+  const lastAppliedRef = useRef<string | null>(null);
   const applyModelSpecEffects = useCallback(
     ({
       convoId,
@@ -33,6 +41,7 @@ export function useApplyModelSpecEffects() {
       startupConfig?: TStartupConfig;
     }) => {
       if (specName == null || !specName) {
+        lastAppliedRef.current = null;
         if (!startupConfig?.modelSpecs?.list?.length) {
           return;
         }
@@ -44,6 +53,13 @@ export function useApplyModelSpecEffects() {
         }
         return;
       }
+
+      const targetId = (convoId ?? Constants.NEW_CONVO) || Constants.NEW_CONVO;
+      const applyKey = `${targetId}::${specName}`;
+      if (lastAppliedRef.current === applyKey) {
+        return;
+      }
+      lastAppliedRef.current = applyKey;
 
       const modelSpec = getModelSpec({
         specName,
@@ -100,6 +116,7 @@ export function useApplyAgentTemplate() {
         ...ephemeralAgent,
         mcp: [...(ephemeralAgent?.mcp ?? []), ...(modelSpec.mcpServers ?? [])],
         web_search: ephemeralAgent?.web_search ?? modelSpec.webSearch ?? false,
+        brave_search: ephemeralAgent?.brave_search ?? false,
         file_search: ephemeralAgent?.file_search ?? modelSpec.fileSearch ?? false,
         execute_code: ephemeralAgent?.execute_code ?? modelSpec.executeCode ?? false,
         artifacts:

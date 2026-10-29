@@ -115,6 +115,7 @@ export async function loadAddedAgent(
       execute_code?: boolean;
       file_search?: boolean;
       web_search?: boolean;
+      brave_search?: boolean;
       artifacts?: unknown;
       memory?: boolean;
     };
@@ -133,6 +134,7 @@ export async function loadAddedAgent(
         execute_code?: boolean;
         file_search?: boolean;
         web_search?: boolean;
+        brave_search?: boolean;
         artifacts?: unknown;
         memory?: boolean;
         ask_user_question?: boolean;
@@ -224,6 +226,9 @@ export async function loadAddedAgent(
   }
   if (ephemeralAgent?.web_search === true || modelSpec?.webSearch === true) {
     tools.push(Tools.web_search);
+  }
+  if (ephemeralAgent?.brave_search === true && !isAgentsEndpoint(endpoint)) {
+    tools.push(Tools.brave_search);
   }
   if (ephemeralAgent?.memory === true || modelSpec?.memory === true) {
     tools.push(Tools.memory);

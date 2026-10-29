@@ -20,15 +20,22 @@ function WebSearch() {
     return null;
   }
   const { webSearch: webSearchData, searchApiKeyForm } = context;
+  const { braveSearch } = context;
   const { toggleState: webSearch, debouncedChange, isPinned, authData } = webSearchData;
   const { badgeTriggerRef } = searchApiKeyForm;
+  const setWebSearch = ({ value }: { value: boolean | string }) => {
+    if (value === true) {
+      braveSearch.setToggleState(false);
+    }
+    debouncedChange({ value });
+  };
 
   return (
     (isPinned || (webSearch && authData?.authenticated)) && (
       <CheckboxButton
         ref={badgeTriggerRef}
         checked={webSearch}
-        setValue={debouncedChange}
+        setValue={setWebSearch}
         label={localize('com_ui_search')}
         isCheckedClassName={badgeAccents.blue}
         icon={<Globe className="icon-md" aria-hidden="true" />}

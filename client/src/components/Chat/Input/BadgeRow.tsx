@@ -17,6 +17,7 @@ import { BadgeRowProvider } from '~/Providers';
 import ToolsDropdown from './ToolsDropdown';
 import { useChatBadges } from '~/hooks';
 import ToolDialogs from './ToolDialogs';
+import BraveSearch from './BraveSearch';
 import FileSearch from './FileSearch';
 import Artifacts from './Artifacts';
 import WebSearch from './WebSearch';
@@ -373,6 +374,7 @@ function BadgeRow({
         {showEphemeralBadges === true && (
           <>
             <WebSearch />
+            <BraveSearch />
             <CodeInterpreter />
             <FileSearch />
             <Skills />

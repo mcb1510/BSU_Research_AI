@@ -62,6 +62,11 @@ export function getWebSearchToolName(): string {
   return process.env.DDGS_TOOL_NAME?.trim() || Tools.web_search;
 }
 
+/** Both configured web-search providers share the same role and capability gate. */
+export function isWebSearchTool(toolName: string): boolean {
+  return toolName === Tools.web_search || toolName === Tools.brave_search;
+}
+
 /**
  * Builds static instructions for the DDGS-backed web tool.
  *
@@ -784,6 +789,67 @@ export const DDGS_WEB_SEARCH_TOOL_DESCRIPTION: string =
   '— using the exact url field from the result, so the user can click through. Do ' +
   'this every time you use retrieved information, not only when asked.';
 
+const braveWebSearchSchema: z.ZodObject<{
+  query: z.ZodString;
+  count: z.ZodOptional<z.ZodNumber>;
+}> = z.object({
+  query: z.string().trim().min(1).max(500).describe('Focused web-search query.'),
+  count: z.number().int().min(1).max(10).optional().describe('Result count; defaults to 5.'),
+});
+
+type BraveWebSearchInput = z.infer<typeof braveWebSearchSchema>;
+
+/** Instructions for the normal-chat Brave tool. Its distinct name and schema
+ * make the provider explicit to the model instead of masquerading as DDGS. */
+export function buildBraveWebSearchContext(): string {
+  return `# \`${Tools.brave_search}\`
+
+Use this tool when the user explicitly asks to search, browse, look up, or verify information, or when current external information is necessary. Pass one focused query. Search results contain titles, URLs, and snippets; answer from them and cite each source used as a Markdown link.`;
+}
+
+async function executeBraveSearch({ query, count = 5 }: BraveWebSearchInput): Promise<string> {
+  const apiKey = process.env.BRAVE_SEARCH_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error('Brave Search is not configured. Set BRAVE_SEARCH_API_KEY on the server.');
+  }
+
+  const url = new URL('https://api.search.brave.com/res/v1/web/search');
+  url.searchParams.set('q', query);
+  url.searchParams.set('count', String(count));
+  const response = await fetch(url, {
+    headers: { Accept: 'application/json', 'X-Subscription-Token': apiKey },
+    signal: AbortSignal.timeout(DEFAULT_SEARCH_TIMEOUT_MS),
+  });
+  if (!response.ok) {
+    throw new Error(`Brave Search failed with status ${response.status}.`);
+  }
+
+  const payload = (await response.json()) as {
+    web?: { results?: Array<{ title?: string; url?: string; description?: string }> };
+  };
+  return JSON.stringify({
+    type: 'search',
+    query,
+    results: (payload.web?.results ?? []).map((result) => ({
+      title: result.title ?? '',
+      url: result.url ?? '',
+      snippet: result.description ?? '',
+    })),
+  });
+}
+
+/** Creates the dedicated Brave web-search tool for normal Chat. */
+export function createBraveWebSearchTool(): DynamicStructuredTool<typeof braveWebSearchSchema> {
+  return tool(executeBraveSearch, {
+    name: Tools.brave_search,
+    description:
+      'Search the web with Brave for current or externally verified information. ' +
+      'Pass a focused query. Results contain titles, URLs, and snippets; cite the sources used ' +
+      'as Markdown links.',
+    schema: braveWebSearchSchema,
+  });
+}
+
 /**
  * Creates a keyless DDGS-backed web tool.
  *
@@ -892,5 +958,38 @@ export const DdgsWebSearchToolDefinition: DdgsWebSearchToolDefinitionShape = {
       },
     },
     required: ['action'],
+  },
+};
+
+export interface BraveWebSearchToolDefinitionShape {
+  name: string;
+  description: string;
+  schema: {
+    type: 'object';
+    properties: {
+      query: { type: 'string'; description: string };
+      count: { type: 'integer'; minimum: number; maximum: number; description: string };
+    };
+    required: string[];
+  };
+}
+
+export const BraveWebSearchToolDefinition: BraveWebSearchToolDefinitionShape = {
+  name: 'brave_search',
+  description:
+    'Search the web with Brave for current or externally verified information. ' +
+    'Pass a focused query and cite the returned sources as Markdown links.',
+  schema: {
+    type: 'object' as const,
+    properties: {
+      query: { type: 'string' as const, description: 'Focused web-search query.' },
+      count: {
+        type: 'integer' as const,
+        minimum: 1,
+        maximum: 10,
+        description: 'Maximum number of results. Defaults to 5.',
+      },
+    },
+    required: ['query'],
   },
 };

@@ -17,11 +17,13 @@ const {
   GenerationJobManager,
   isActionDomainAllowed,
   buildWebSearchContext,
+  buildBraveWebSearchContext,
   buildImageToolContext,
   buildToolClassification,
   supportsProgrammaticCodeExecution,
   getMissingCustomUserVars,
   buildWebSearchDynamicContext,
+  isWebSearchTool,
   getCodeApiAuthHeaders,
   getReplayablePendingMCPOAuthStart,
   getMCPServerNamesFromTools,
@@ -870,7 +872,7 @@ async function loadToolDefinitionsWrapper({
     if (tool === Tools.execute_code) {
       return checkCapability(AgentCapabilities.execute_code) && canUseTool(tool);
     }
-    if (tool === Tools.web_search) {
+    if (isWebSearchTool(tool)) {
       return checkCapability(AgentCapabilities.web_search) && canUseTool(tool);
     }
     if (tool === Tools.memory) {
@@ -1452,12 +1454,16 @@ async function loadToolDefinitionsWrapper({
   /** @type {Record<string, string>} */
   const dynamicToolContextMap = {};
   const hasWebSearch = filteredTools.includes(Tools.web_search);
+  const hasBraveSearch = filteredTools.includes(Tools.brave_search);
   const hasFileSearch = filteredTools.includes(Tools.file_search);
   const hasExecuteCode = filteredTools.includes(Tools.execute_code);
 
   if (hasWebSearch) {
     toolContextMap[Tools.web_search] = buildWebSearchContext();
     dynamicToolContextMap[Tools.web_search] = buildWebSearchDynamicContext(req.turnStartedAt);
+  }
+  if (hasBraveSearch) {
+    toolContextMap[Tools.brave_search] = buildBraveWebSearchContext();
   }
 
   /**
@@ -1670,7 +1676,8 @@ async function loadAgentTools({
       return checkCapability(AgentCapabilities.file_search) && canUseTool(tool);
     } else if (tool === Tools.execute_code) {
       return checkCapability(AgentCapabilities.execute_code) && canUseTool(tool);
-    } else if (tool === Tools.web_search) {
+    } else if (isWebSearchTool(tool)) {
+      /** Both DDGS and Brave are gated by the web-search capability. */
       includesWebSearch = checkCapability(AgentCapabilities.web_search) && canUseTool(tool);
       return includesWebSearch;
     } else if (tool === Tools.memory) {

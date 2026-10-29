@@ -1,10 +1,10 @@
 import { CalculatorToolDefinition } from '@librechat/agents';
 import type { ExtendedJsonSchema } from './schema';
+import { BraveWebSearchToolDefinition, DdgsWebSearchToolDefinition } from '~/tools/toolkits/web';
 import { AskUserQuestionToolDefinition } from '~/agents/hitl/askUserQuestionTool';
 import { PaperSummarizerToolDefinition } from '~/tools/toolkits/paperSummarizer';
 import { DesktopTerminalToolDefinition } from '~/tools/toolkits/desktopTerminal';
 import { DesktopWriteToolDefinition } from '~/tools/toolkits/desktopWrite';
-import { DdgsWebSearchToolDefinition } from '~/tools/toolkits/web';
 import { geminiToolkit } from '~/tools/toolkits/gemini';
 import { oaiToolkit } from '~/tools/toolkits/oai';
 
@@ -450,6 +450,12 @@ const agentToolDefinitions: Record<string, ToolRegistryDefinition> = {
     name: DdgsWebSearchToolDefinition.name,
     description: DdgsWebSearchToolDefinition.description,
     schema: DdgsWebSearchToolDefinition.schema as unknown as ExtendedJsonSchema,
+    toolType: 'builtin',
+  },
+  [BraveWebSearchToolDefinition.name]: {
+    name: BraveWebSearchToolDefinition.name,
+    description: BraveWebSearchToolDefinition.description,
+    schema: BraveWebSearchToolDefinition.schema as unknown as ExtendedJsonSchema,
     toolType: 'builtin',
   },
   [PaperSummarizerToolDefinition.name]: {

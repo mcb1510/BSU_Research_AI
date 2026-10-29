@@ -19,6 +19,7 @@ export const toolRolePermissions: Partial<Record<string, PermissionTypes>> = {
   [Tools.file_search]: PermissionTypes.FILE_SEARCH,
   [Tools.execute_code]: PermissionTypes.RUN_CODE,
   [Tools.web_search]: PermissionTypes.WEB_SEARCH,
+  [Tools.brave_search]: PermissionTypes.WEB_SEARCH,
 };
 
 /**
